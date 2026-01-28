@@ -2,8 +2,8 @@ import { query, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { classifyDocument as classifyWithOpenAI } from '@/lib/openai'
-import { extractDocumentWithFallback } from '@/lib/mistral-ocr'
 import { downloadFile } from '@/lib/sharepoint'
+import { extractDocument, isSupportedFileType } from '@/lib/document-extraction'
 import type { Document } from '@/types'
 
 // Define the Assessment Agent's MCP server with tools
@@ -33,31 +33,57 @@ export const assessmentServer = createSdkMcpServer({
         }
 
         try {
-          // Download file content as fallback
-          const fallbackContent = await downloadFile(engagement.sharepointDriveId, args.sharepointItemId)
+          // Download file with presigned URL
+          const { buffer, presignedUrl, mimeType, fileName, size } = await downloadFile(
+            engagement.sharepointDriveId,
+            args.sharepointItemId
+          )
 
-          // Build the download URL for OCR
-          const downloadUrl = `https://graph.microsoft.com/v1.0/drives/${engagement.sharepointDriveId}/items/${args.sharepointItemId}/content`
+          // Check if file type is supported
+          if (!isSupportedFileType(mimeType)) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Unsupported file type: ${mimeType}. Supported: PDF, JPG, PNG, HEIC, DOCX, XLSX`,
+                },
+              ],
+              isError: true,
+            }
+          }
 
-          // Try OCR extraction with fallback
-          const ocrResult = await extractDocumentWithFallback(downloadUrl, fallbackContent)
+          // Extract document using the new pipeline
+          const result = await extractDocument(presignedUrl, buffer, mimeType)
 
           return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                documentId: args.documentId,
-                fileName: args.fileName,
-                extractedText: ocrResult.markdown.slice(0, 10000), // Limit for context
-                tableCount: ocrResult.tables.length,
-                pageCount: ocrResult.pages.length
-              }, null, 2)
-            }]
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    documentId: args.documentId,
+                    fileName,
+                    fileSize: size,
+                    extractedText: result.markdown.slice(0, 10000), // Limit for context
+                    tableCount: result.tables.length,
+                    pageCount: result.pages.length,
+                    confidence: result.confidence,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
           }
         } catch (error) {
           return {
-            content: [{ type: 'text', text: `Error extracting document: ${error instanceof Error ? error.message : 'Unknown error'}` }],
-            isError: true
+            content: [
+              {
+                type: 'text',
+                text: `Error extracting document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              },
+            ],
+            isError: true,
           }
         }
       }

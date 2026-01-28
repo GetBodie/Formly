@@ -4,6 +4,25 @@ import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-grap
 
 let client: Client | null = null
 
+// Custom error for file size validation
+export class DocumentTooLargeError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'DocumentTooLargeError'
+  }
+}
+
+// Maximum file size: 25MB
+const MAX_FILE_SIZE = 25 * 1024 * 1024
+
+export interface DownloadResult {
+  buffer: Buffer
+  presignedUrl: string
+  mimeType: string
+  fileName: string
+  size: number
+}
+
 function getClient(): Client {
   if (!client) {
     const credential = new ClientSecretCredential(
@@ -31,14 +50,39 @@ export async function syncFolder(driveId: string, folderId: string, deltaLink: s
   }
 }
 
-export async function downloadFile(driveId: string, itemId: string): Promise<string> {
+export async function downloadFile(driveId: string, itemId: string): Promise<DownloadResult> {
   const c = getClient()
-  const item = await c.api(`/drives/${driveId}/items/${itemId}`).select('@microsoft.graph.downloadUrl').get()
-  const response = await fetch(item['@microsoft.graph.downloadUrl'])
-  const buffer = await response.arrayBuffer()
 
-  // For demo: just return text. Production would use PDF parser.
-  return Buffer.from(buffer).toString('utf-8').slice(0, 50000)
+  // Get item metadata including presigned URL
+  const item = await c
+    .api(`/drives/${driveId}/items/${itemId}`)
+    .select('name,size,file,@microsoft.graph.downloadUrl')
+    .get()
+
+  const presignedUrl = item['@microsoft.graph.downloadUrl']
+  const mimeType = item.file?.mimeType || 'application/octet-stream'
+  const fileName = item.name
+  const size = item.size
+
+  // Validate file size
+  if (size > MAX_FILE_SIZE) {
+    throw new DocumentTooLargeError(
+      `File ${fileName} is ${(size / 1024 / 1024).toFixed(1)}MB, ` +
+        `exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit. Please compress and re-upload.`
+    )
+  }
+
+  // Download the actual file
+  const response = await fetch(presignedUrl)
+  const buffer = Buffer.from(await response.arrayBuffer())
+
+  return {
+    buffer,
+    presignedUrl,
+    mimeType,
+    fileName,
+    size,
+  }
 }
 
 export async function resolveSharePointUrl(url: string): Promise<{ driveId: string; folderId: string } | null> {
