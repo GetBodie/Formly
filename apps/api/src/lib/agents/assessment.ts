@@ -364,14 +364,16 @@ export const assessmentServer = createSdkMcpServer({
           }
         }
 
-        // Update the document
+        // Update the document - mark as classified
         documents[docIndex] = {
           ...documents[docIndex],
           documentType: args.documentType,
           confidence: args.confidence,
           taxYear: args.taxYear,
           issues: args.issues,
-          classifiedAt: new Date().toISOString()
+          classifiedAt: new Date().toISOString(),
+          processingStatus: 'classified',
+          processingStartedAt: null // Clear the timestamp
         }
 
         await prisma.engagement.update({
@@ -408,6 +410,18 @@ export async function runAssessmentAgent(context: {
 
   if (!engagement) {
     throw new Error(`Engagement ${context.engagementId} not found`)
+  }
+
+  // Mark document as in_progress with timestamp
+  const documents = (engagement.documents as Document[] | null) ?? []
+  const docIndex = documents.findIndex(d => d.id === context.documentId)
+  if (docIndex !== -1) {
+    documents[docIndex].processingStatus = 'in_progress'
+    documents[docIndex].processingStartedAt = new Date().toISOString()
+    await prisma.engagement.update({
+      where: { id: context.engagementId },
+      data: { documents }
+    })
   }
 
   const systemPrompt = `You are a Document Assessment Agent for a tax document collection system. Your role is to analyze uploaded documents, classify them, validate their content, and flag any issues.

@@ -25,7 +25,10 @@ app.get('/poll-storage', async (c) => {
   // Process all in background
   runAllInBackground(engagements.map(engagement => () => pollEngagement(engagement)))
 
-  return c.json({ queued: engagements.length })
+  // Also retry stuck documents (in_progress for > 5 minutes)
+  const stuckCount = await retryStuckDocuments(engagements)
+
+  return c.json({ queued: engagements.length, retriedStuck: stuckCount })
 })
 
 // GET /api/cron/check-reminders - Check for stale engagements and send reminders
@@ -60,6 +63,56 @@ app.get('/check-reminders', async (c) => {
     engagementIds: staleEngagements.map(e => e.id)
   })
 })
+
+// Retry documents stuck in 'in_progress' status for > 5 minutes
+async function retryStuckDocuments(engagements: { id: string; documents: unknown }[]): Promise<number> {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+  let retriedCount = 0
+
+  for (const engagement of engagements) {
+    const documents = (engagement.documents as Document[]) || []
+    const stuckDocs = documents.filter(d =>
+      d.processingStatus === 'in_progress' &&
+      d.processingStartedAt &&
+      d.processingStartedAt < fiveMinutesAgo
+    )
+
+    if (stuckDocs.length === 0) continue
+
+    // Reset stuck documents to pending
+    let updated = false
+    for (const doc of documents) {
+      if (doc.processingStatus === 'in_progress' &&
+          doc.processingStartedAt &&
+          doc.processingStartedAt < fiveMinutesAgo) {
+        doc.processingStatus = 'pending'
+        doc.processingStartedAt = null
+        updated = true
+        retriedCount++
+
+        // Re-dispatch the document_uploaded event
+        runInBackground(() => dispatch({
+          type: 'document_uploaded',
+          engagementId: engagement.id,
+          documentId: doc.id,
+          sharepointItemId: doc.storageItemId || doc.sharepointItemId || '',
+          fileName: doc.fileName
+        }))
+
+        console.log(`[CRON] Retrying stuck document ${doc.id} (${doc.fileName}) for engagement ${engagement.id}`)
+      }
+    }
+
+    if (updated) {
+      await prisma.engagement.update({
+        where: { id: engagement.id },
+        data: { documents }
+      })
+    }
+  }
+
+  return retriedCount
+}
 
 async function pollEngagement(engagement: {
   id: string
