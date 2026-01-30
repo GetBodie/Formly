@@ -150,4 +150,41 @@ app.post('/:id/brief', async (c) => {
   return c.json({ success: true, brief })
 })
 
+// POST /api/engagements/:id/retry-documents - Retry processing of PENDING documents
+app.post('/:id/retry-documents', async (c) => {
+  const id = c.req.param('id')
+
+  const engagement = await prisma.engagement.findUnique({ where: { id } })
+
+  if (!engagement) {
+    return c.json({ error: 'Engagement not found' }, 404)
+  }
+
+  const documents = (engagement.documents as Document[]) || []
+  const pendingDocs = documents.filter(d => d.documentType === 'PENDING')
+
+  if (pendingDocs.length === 0) {
+    return c.json({ message: 'No PENDING documents to retry', retried: 0 })
+  }
+
+  // Dispatch document_uploaded events for each pending document
+  for (const doc of pendingDocs) {
+    runInBackground(() => dispatch({
+      type: 'document_uploaded',
+      engagementId: engagement.id,
+      documentId: doc.id,
+      sharepointItemId: doc.storageItemId || doc.sharepointItemId || '',
+      fileName: doc.fileName
+    }))
+  }
+
+  console.log(`[RETRY] Dispatched ${pendingDocs.length} PENDING documents for ${id}`)
+
+  return c.json({
+    message: `Retrying ${pendingDocs.length} PENDING documents`,
+    retried: pendingDocs.length,
+    documentIds: pendingDocs.map(d => d.id)
+  })
+})
+
 export default app
