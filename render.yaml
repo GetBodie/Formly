@@ -5,7 +5,7 @@ databases:
     user: tax_agent
 
 services:
-  # API Service
+  # API Service (deploy first)
   - type: web
     name: tax-agent-api
     runtime: docker
@@ -19,13 +19,17 @@ services:
           name: tax-agent-db
           property: connectionString
       - key: PORT
-        value: 3001
+        value: "3001"
       - key: NODE_ENV
         value: production
       - key: ENABLE_SCHEDULER
-        value: true
+        value: "true"
       - key: FRONTEND_URL
-        sync: false  # Set manually after web deploys
+        fromService:
+          name: tax-agent-web
+          type: web
+          property: host
+      # Required API keys - set these manually in Render dashboard
       - key: OPENAI_API_KEY
         sync: false
       - key: MISTRAL_API_KEY
@@ -52,13 +56,20 @@ services:
       - key: DROPBOX_ACCESS_TOKEN
         sync: false
 
-  # Web Frontend (Static Site)
+  # Web Frontend
   - type: web
     name: tax-agent-web
     runtime: docker
     dockerfilePath: ./apps/web/Dockerfile
     dockerContext: ./apps/web
     plan: free
+    buildFilter:
+      paths:
+        - apps/web/**
     envVars:
+      # This references the API service URL
       - key: VITE_API_URL
-        sync: false  # Set to API URL after it deploys
+        fromService:
+          name: tax-agent-api
+          type: web
+          property: hostURL

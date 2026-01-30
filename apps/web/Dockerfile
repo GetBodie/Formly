@@ -3,9 +3,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Build arg for API URL (set at build time)
+# Build arg for API URL (REQUIRED at build time)
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+
+# Fail fast if API URL not provided
+RUN if [ -z "$VITE_API_URL" ]; then echo "ERROR: VITE_API_URL build arg is required" && exit 1; fi
 
 # Copy package files
 COPY package.json package-lock.json* ./
@@ -16,7 +19,7 @@ RUN npm ci
 # Copy source
 COPY . .
 
-# Build for production
+# Build for production (VITE_API_URL is baked in here)
 RUN npm run build
 
 # Production stage - serve with nginx
