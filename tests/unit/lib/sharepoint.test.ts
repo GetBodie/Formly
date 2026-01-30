@@ -50,7 +50,7 @@ describe('sharepoint', () => {
 
       const result = await downloadFile('drive-id', 'item-id')
 
-      expect(result.presignedUrl).toBe('https://presigned.url/file')
+      expect(result.presignedUrl).toBe('') // No longer exposed in new storage API
       expect(result.mimeType).toBe('application/pdf')
       expect(result.fileName).toBe('w2-2024.pdf')
       expect(result.size).toBe(1024)

@@ -14,12 +14,21 @@ model Engagement {
   taxYear             Int
   status              String   @default("PENDING") // PENDING | INTAKE_DONE | COLLECTING | READY
 
-  // External references
-  sharepointFolderUrl String
+  // Storage provider (sharepoint | google-drive)
+  storageProvider     String   @default("sharepoint")
+  storageFolderUrl    String
+  storageFolderId     String?
+  storageDriveId      String?  // SharePoint only
+  storagePageToken    String?  // Delta link (SharePoint) or page token (Google Drive)
+
+  // Legacy SharePoint fields (deprecated, use storage* fields)
+  sharepointFolderUrl String?
   sharepointDriveId   String?
   sharepointFolderId  String?
+  deltaLink           String?
+
+  // Typeform
   typeformFormId      String
-  deltaLink           String?  // SharePoint delta token
 
   // All data as JSONB
   intakeData          Json?    @db.JsonB

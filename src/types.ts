@@ -12,7 +12,8 @@ export const ChecklistItemSchema = z.object({
 export const DocumentSchema = z.object({
   id: z.string(),
   fileName: z.string(),
-  sharepointItemId: z.string(),
+  storageItemId: z.string(), // File ID in storage provider (SharePoint or Google Drive)
+  sharepointItemId: z.string().optional(), // Deprecated, use storageItemId
   documentType: z.string(),
   confidence: z.number(),
   taxYear: z.number().nullable(),

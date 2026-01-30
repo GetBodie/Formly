@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/poll-sharepoint",
+      "path": "/api/cron/poll-storage",
       "schedule": "*/5 * * * *"
     },
     {

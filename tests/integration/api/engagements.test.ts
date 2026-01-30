@@ -8,10 +8,13 @@ vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
 }))
 
-vi.mock('@/lib/sharepoint', () => ({
-  resolveSharePointUrl: vi.fn().mockResolvedValue({
-    driveId: 'drive-123',
-    folderId: 'folder-123',
+vi.mock('@/lib/storage', () => ({
+  detectProvider: vi.fn().mockReturnValue('sharepoint'),
+  getStorageClient: vi.fn().mockReturnValue({
+    resolveUrl: vi.fn().mockResolvedValue({
+      folderId: 'folder-123',
+      driveId: 'drive-123',
+    }),
   }),
 }))
 
@@ -66,7 +69,7 @@ describe('/api/engagements', () => {
       clientName: 'New Client',
       clientEmail: 'new@example.com',
       taxYear: 2024,
-      sharepointFolderUrl: 'https://sharepoint.com/sites/tax/folder',
+      storageFolderUrl: 'https://company.sharepoint.com/sites/tax/folder',
       typeformFormId: 'form-123',
     }
 
@@ -113,7 +116,7 @@ describe('/api/engagements', () => {
         body: {
           clientEmail: 'test@example.com',
           taxYear: 2024,
-          sharepointFolderUrl: 'https://sharepoint.com/folder',
+          storageFolderUrl: 'https://company.sharepoint.com/folder',
           typeformFormId: 'form-123',
         },
       })
@@ -153,7 +156,7 @@ describe('/api/engagements', () => {
         method: 'POST',
         body: {
           ...validPayload,
-          sharepointFolderUrl: 'not-a-url',
+          storageFolderUrl: 'not-a-url',
         },
       })
       const response = await POST(request)
@@ -161,14 +164,18 @@ describe('/api/engagements', () => {
       expect(response.status).toBe(400)
     })
 
-    it('should continue with null SharePoint IDs when resolution fails', async () => {
-      const { resolveSharePointUrl } = await import('@/lib/sharepoint')
-      vi.mocked(resolveSharePointUrl).mockRejectedValueOnce(new Error('Resolution failed'))
+    it('should continue with null storage IDs when resolution fails', async () => {
+      const { getStorageClient } = await import('@/lib/storage')
+      vi.mocked(getStorageClient).mockReturnValueOnce({
+        resolveUrl: vi.fn().mockRejectedValueOnce(new Error('Resolution failed')),
+        syncFolder: vi.fn(),
+        downloadFile: vi.fn(),
+      })
 
       const createdEngagement = createEngagement({
         id: 'new-eng-1',
-        sharepointDriveId: null,
-        sharepointFolderId: null,
+        storageFolderId: null,
+        storageDriveId: null,
       })
       prismaMock.engagement.create.mockResolvedValue(createdEngagement)
 

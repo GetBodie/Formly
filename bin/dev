@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Start PostgreSQL
+docker compose up -d
+
+# Start Next.js dev server
+npm run dev -- -p 3010

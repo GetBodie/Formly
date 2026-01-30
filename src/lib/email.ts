@@ -9,7 +9,8 @@ interface Engagement {
   clientEmail: string
   taxYear: number
   typeformFormId: string
-  sharepointFolderUrl: string
+  storageFolderUrl: string
+  sharepointFolderUrl: string // Legacy alias for storageFolderUrl
   checklist?: ChecklistItem[] | null
 }
 
@@ -51,7 +52,7 @@ export const emailTemplates = {
         </ul>
         <p><strong>Upload your documents here:</strong></p>
         <p style="margin: 24px 0;">
-          <a href="${engagement.sharepointFolderUrl}"
+          <a href="${engagement.storageFolderUrl}"
              style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
             Open SharePoint Folder
           </a>
@@ -74,7 +75,7 @@ export const emailTemplates = {
           ${missingItems.map(item => `<li style="margin: 8px 0;">${item.title}</li>`).join('')}
         </ul>
         <p style="margin: 24px 0;">
-          <a href="${engagement.sharepointFolderUrl}"
+          <a href="${engagement.storageFolderUrl}"
              style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
             Upload Now
           </a>
@@ -102,7 +103,7 @@ export const emailTemplates = {
         </div>
         <p>Please upload corrected versions to continue processing your tax return.</p>
         <p style="margin: 24px 0;">
-          <a href="${engagement.sharepointFolderUrl}"
+          <a href="${engagement.storageFolderUrl}"
              style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
             Upload Corrected Documents
           </a>

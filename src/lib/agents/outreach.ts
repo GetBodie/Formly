@@ -51,7 +51,8 @@ export const outreachServer = createSdkMcpServer({
           clientEmail: engagement.clientEmail,
           taxYear: engagement.taxYear,
           typeformFormId: engagement.typeformFormId,
-          sharepointFolderUrl: engagement.sharepointFolderUrl,
+          storageFolderUrl: engagement.storageFolderUrl,
+          sharepointFolderUrl: engagement.storageFolderUrl, // Legacy alias
           checklist: engagement.checklist as ChecklistItem[] | null
         }
 

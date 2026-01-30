@@ -84,7 +84,12 @@ export default async function EngagementPage({ params }: { params: Promise<{ id:
           )}
 
           <div className="mt-4 pt-4 border-t text-sm text-gray-500">
-            <p>SharePoint: <a href={engagement.sharepointFolderUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{engagement.sharepointFolderUrl}</a></p>
+            <p>
+              Storage ({engagement.storageProvider}): {' '}
+              <a href={engagement.storageFolderUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                {engagement.storageFolderUrl}
+              </a>
+            </p>
             <p>Typeform ID: {engagement.typeformFormId}</p>
           </div>
         </div>

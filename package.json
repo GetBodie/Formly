@@ -19,6 +19,8 @@
     "@prisma/client": "^5.22.0",
     "@vercel/functions": "^3.3.6",
     "dotenv": "^17.2.3",
+    "dropbox": "^10.34.0",
+    "googleapis": "^170.1.0",
     "next": "16.1.4",
     "openai": "^6.16.0",
     "react": "19.2.3",

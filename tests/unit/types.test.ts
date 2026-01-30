@@ -100,6 +100,7 @@ describe('Zod Schemas', () => {
       const doc = {
         id: 'doc-1',
         fileName: 'w2-2024.pdf',
+        storageItemId: 'storage-item-123',
         sharepointItemId: 'sp-item-123',
         documentType: 'W-2',
         confidence: 0.95,
@@ -115,7 +116,7 @@ describe('Zod Schemas', () => {
       const doc = {
         id: 'doc-1',
         fileName: 'unknown.pdf',
-        sharepointItemId: 'sp-item-123',
+        storageItemId: 'storage-item-123',
         documentType: 'OTHER',
         confidence: 0.5,
         taxYear: null,
@@ -130,7 +131,7 @@ describe('Zod Schemas', () => {
       const doc = {
         id: 'doc-1',
         fileName: 'pending.pdf',
-        sharepointItemId: 'sp-item-123',
+        storageItemId: 'storage-item-123',
         documentType: 'UNKNOWN',
         confidence: 0,
         taxYear: null,
@@ -145,7 +146,7 @@ describe('Zod Schemas', () => {
       const doc = {
         id: 'doc-1',
         fileName: 'bad-scan.pdf',
-        sharepointItemId: 'sp-item-123',
+        storageItemId: 'storage-item-123',
         documentType: 'W-2',
         confidence: 0.7,
         taxYear: 2023,
@@ -170,7 +171,7 @@ describe('Zod Schemas', () => {
       const doc = {
         id: 'doc-1',
         fileName: 'test.pdf',
-        sharepointItemId: 'sp-item-123',
+        storageItemId: 'storage-item-123',
         documentType: 'W-2',
         confidence: 'high', // should be number
         taxYear: 2024,

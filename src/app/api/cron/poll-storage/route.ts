@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/prisma'
-import { syncFolder } from '@/lib/sharepoint'
+import { getStorageClient, type StorageProvider } from '@/lib/storage'
 import { dispatch } from '@/lib/agents/dispatcher'
 import type { Document } from '@/types'
 
@@ -23,45 +23,54 @@ export async function GET(request: NextRequest) {
 
 async function pollEngagement(engagement: {
   id: string
+  storageProvider: string
+  storageFolderId: string | null
+  storageDriveId: string | null
+  storagePageToken: string | null
+  // Legacy fields
   sharepointDriveId: string | null
   sharepointFolderId: string | null
   deltaLink: string | null
   checklist: unknown
   documents: unknown
 }) {
-  if (!engagement.sharepointDriveId || !engagement.sharepointFolderId) return
+  // Support both new and legacy field names
+  const provider = (engagement.storageProvider || 'sharepoint') as StorageProvider
+  const folderId = engagement.storageFolderId || engagement.sharepointFolderId
+  const driveId = engagement.storageDriveId || engagement.sharepointDriveId
+  const pageToken = engagement.storagePageToken || engagement.deltaLink
+
+  if (!folderId) return
+
+  // SharePoint requires driveId
+  if (provider === 'sharepoint' && !driveId) return
 
   try {
-    const { items, newDeltaLink } = await syncFolder(
-      engagement.sharepointDriveId,
-      engagement.sharepointFolderId,
-      engagement.deltaLink
-    )
+    const client = getStorageClient(provider)
+    const { files, nextPageToken } = await client.syncFolder(folderId, pageToken, driveId || undefined)
 
     const existingDocs = (engagement.documents as Document[]) || []
     const existingIds = new Set(existingDocs.map(d => d.storageItemId || d.sharepointItemId))
 
     // Process new files
-    const newFiles = items.filter(item => item.file && !item.deleted && item.id && !existingIds.has(item.id))
+    const newFiles = files.filter(file => !file.deleted && !existingIds.has(file.id))
 
     if (newFiles.length === 0) {
-      // Just update delta link if no new files
+      // Just update page token if no new files
       await prisma.engagement.update({
         where: { id: engagement.id },
-        data: { deltaLink: newDeltaLink }
+        data: { storagePageToken: nextPageToken, deltaLink: nextPageToken }
       })
       return
     }
 
     // Add placeholder documents for new files
     for (const file of newFiles) {
-      if (!file.id || !file.name) continue
-
       const newDoc: Document = {
         id: crypto.randomUUID(),
         fileName: file.name,
         storageItemId: file.id,
-        sharepointItemId: file.id, // Legacy field
+        sharepointItemId: file.id, // Keep for backwards compatibility
         documentType: 'PENDING',
         confidence: 0,
         taxYear: null,
@@ -72,21 +81,19 @@ async function pollEngagement(engagement: {
       existingDocs.push(newDoc)
     }
 
-    // Update documents list and delta link
+    // Update documents list and page token
     await prisma.engagement.update({
       where: { id: engagement.id },
       data: {
-        deltaLink: newDeltaLink,
+        storagePageToken: nextPageToken,
+        deltaLink: nextPageToken, // Keep legacy field in sync
         documents: existingDocs,
         status: 'COLLECTING'
       }
     })
 
     // Dispatch document_uploaded events for each new file
-    // Assessment Agent will classify and chain to Reconciliation Agent
     for (const file of newFiles) {
-      if (!file.id || !file.name) continue
-
       const doc = existingDocs.find(d => d.storageItemId === file.id || d.sharepointItemId === file.id)
       if (!doc) continue
 
@@ -94,12 +101,12 @@ async function pollEngagement(engagement: {
         type: 'document_uploaded',
         engagementId: engagement.id,
         documentId: doc.id,
-        sharepointItemId: file.id,
+        sharepointItemId: file.id, // Keep event shape for backwards compatibility
         fileName: file.name
       })
     }
 
-    console.log(`[POLL] ${engagement.id}: Dispatched ${newFiles.length} documents to Assessment Agent`)
+    console.log(`[POLL] ${engagement.id}: Dispatched ${newFiles.length} documents (${provider})`)
   } catch (error) {
     console.error(`[POLL] Error processing engagement ${engagement.id}:`, error)
   }
