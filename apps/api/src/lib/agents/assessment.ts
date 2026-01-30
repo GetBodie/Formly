@@ -2,7 +2,7 @@ import { query, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 import { prisma } from '../prisma.js'
 import { classifyDocument as classifyWithOpenAI } from '../openai.js'
-import { sharePointClient } from '../storage/sharepoint.js'
+import { getStorageClient, type StorageProvider } from '../storage/index.js'
 import { extractDocument, isSupportedFileType } from '../document-extraction.js'
 import type { Document } from '../../types.js'
 
@@ -25,18 +25,31 @@ export const assessmentServer = createSdkMcpServer({
           where: { id: args.engagementId }
         })
 
-        if (!engagement || !engagement.sharepointDriveId) {
+        if (!engagement) {
           return {
-            content: [{ type: 'text', text: 'Error: Engagement not found or SharePoint not configured' }],
+            content: [{ type: 'text', text: 'Error: Engagement not found' }],
+            isError: true
+          }
+        }
+
+        // Get storage provider and required IDs
+        const provider = (engagement.storageProvider || 'sharepoint') as StorageProvider
+        const folderId = engagement.storageFolderId || engagement.sharepointFolderId
+        const driveId = engagement.storageDriveId || engagement.sharepointDriveId
+
+        if (!folderId) {
+          return {
+            content: [{ type: 'text', text: 'Error: Storage folder not configured' }],
             isError: true
           }
         }
 
         try {
-          // Download file
-          const { buffer, mimeType, fileName, size } = await sharePointClient.downloadFile(
-            args.sharepointItemId,
-            engagement.sharepointDriveId
+          // Download file using the appropriate storage client
+          const client = getStorageClient(provider)
+          const { buffer, mimeType, fileName, size } = await client.downloadFile(
+            args.sharepointItemId, // This is actually the storageItemId
+            driveId || undefined
           )
 
           // Check if file type is supported
