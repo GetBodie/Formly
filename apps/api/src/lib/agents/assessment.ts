@@ -36,10 +36,18 @@ export const assessmentServer = createSdkMcpServer({
         const provider = (engagement.storageProvider || 'sharepoint') as StorageProvider
         const folderId = engagement.storageFolderId || engagement.sharepointFolderId
         const driveId = engagement.storageDriveId || engagement.sharepointDriveId
+        const folderUrl = engagement.storageFolderUrl as string | null
 
-        if (!folderId) {
+        // For Dropbox shared folders, we can access files using the URL even without folderId
+        if (provider !== 'dropbox' && !folderId) {
           return {
             content: [{ type: 'text', text: 'Error: Storage folder not configured' }],
+            isError: true
+          }
+        }
+        if (provider === 'dropbox' && !folderId && !folderUrl) {
+          return {
+            content: [{ type: 'text', text: 'Error: Dropbox folder URL or ID not configured' }],
             isError: true
           }
         }
@@ -49,7 +57,7 @@ export const assessmentServer = createSdkMcpServer({
           const client = getStorageClient(provider)
           const { buffer, mimeType, fileName, size } = await client.downloadFile(
             args.sharepointItemId, // This is actually the storageItemId
-            driveId || undefined
+            { driveId: driveId || undefined, sharedLinkUrl: folderUrl || undefined }
           )
 
           // Check if file type is supported

@@ -1,5 +1,5 @@
 import { Dropbox } from 'dropbox'
-import type { StorageClient, SyncResult, DownloadResult, FolderInfo, StorageFile } from './types.js'
+import type { StorageClient, SyncResult, DownloadResult, FolderInfo, StorageFile, SyncOptions } from './types.js'
 import { DocumentTooLargeError, MAX_FILE_SIZE } from './types.js'
 
 let dbxClient: Dropbox | null = null
@@ -17,8 +17,9 @@ function getClient(): Dropbox {
 }
 
 export const dropboxClient: StorageClient = {
-  async syncFolder(folderId: string, pageToken: string | null): Promise<SyncResult> {
+  async syncFolder(folderId: string, pageToken: string | null, options?: SyncOptions): Promise<SyncResult> {
     const dbx = getClient()
+    const sharedLinkUrl = options?.sharedLinkUrl
 
     if (pageToken) {
       // Continue from cursor
@@ -50,6 +51,34 @@ export const dropboxClient: StorageClient = {
     }
 
     // Initial sync - list all files in folder
+    // If we have a shared link URL, use it for accessing the shared folder
+    if (sharedLinkUrl) {
+      try {
+        const response = await dbx.filesListFolder({
+          path: '', // Root of the shared folder
+          shared_link: { url: sharedLinkUrl },
+          recursive: false,
+        })
+
+        const files: StorageFile[] = response.result.entries
+          .filter(entry => entry['.tag'] === 'file')
+          .map(entry => ({
+            id: (entry as { id: string }).id,
+            name: entry.name,
+            mimeType: getMimeType(entry.name),
+          }))
+
+        return {
+          files,
+          nextPageToken: response.result.cursor,
+        }
+      } catch (error) {
+        console.error('[DROPBOX] Error listing shared folder:', error)
+        throw error
+      }
+    }
+
+    // Standard folder listing (for direct access)
     const response = await dbx.filesListFolder({
       path: folderId === 'root' ? '' : folderId,
       recursive: false,
@@ -69,10 +98,45 @@ export const dropboxClient: StorageClient = {
     }
   },
 
-  async downloadFile(fileId: string): Promise<DownloadResult> {
+  async downloadFile(fileId: string, options?: SyncOptions): Promise<DownloadResult> {
     const dbx = getClient()
+    const sharedLinkUrl = options?.sharedLinkUrl
 
     // Get file metadata first
+    let fileName: string
+    let size: number
+
+    if (sharedLinkUrl && !fileId.startsWith('id:')) {
+      // For shared links, we might have a path instead of an ID
+      // Use shared link metadata
+      const metadata = await dbx.sharingGetSharedLinkFile({
+        url: sharedLinkUrl,
+        path: `/${fileId}`, // Path relative to shared folder
+      })
+      const result = metadata.result as { name: string; size: number }
+      fileName = result.name
+      size = result.size
+
+      // Validate file size
+      if (size > MAX_FILE_SIZE) {
+        throw new DocumentTooLargeError(
+          `File ${fileName} is ${(size / 1024 / 1024).toFixed(1)}MB, ` +
+            `exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit. Please compress and re-upload.`
+        )
+      }
+
+      // The response includes the file content
+      const fileBlob = (metadata.result as unknown as { fileBinary: Buffer }).fileBinary
+
+      return {
+        buffer: Buffer.from(fileBlob),
+        mimeType: getMimeType(fileName),
+        fileName,
+        size,
+      }
+    }
+
+    // Standard file download by ID
     const metadata = await dbx.filesGetMetadata({ path: fileId })
 
     if (metadata.result['.tag'] !== 'file') {
@@ -80,8 +144,8 @@ export const dropboxClient: StorageClient = {
     }
 
     const fileMetadata = metadata.result as { name: string; size: number }
-    const fileName = fileMetadata.name
-    const size = fileMetadata.size
+    fileName = fileMetadata.name
+    size = fileMetadata.size
 
     // Validate file size
     if (size > MAX_FILE_SIZE) {

@@ -1,5 +1,5 @@
 import { google } from 'googleapis'
-import type { StorageClient, SyncResult, DownloadResult, FolderInfo, StorageFile } from './types.js'
+import type { StorageClient, SyncResult, DownloadResult, FolderInfo, StorageFile, SyncOptions } from './types.js'
 import { DocumentTooLargeError, MAX_FILE_SIZE } from './types.js'
 
 let driveClient: ReturnType<typeof google.drive> | null = null
@@ -20,7 +20,7 @@ function getClient() {
 }
 
 export const googleDriveClient: StorageClient = {
-  async syncFolder(folderId: string, pageToken: string | null): Promise<SyncResult> {
+  async syncFolder(folderId: string, pageToken: string | null, _options?: SyncOptions): Promise<SyncResult> {
     const drive = getClient()
 
     // Use changes API if we have a page token, otherwise list files
@@ -73,7 +73,7 @@ export const googleDriveClient: StorageClient = {
     }
   },
 
-  async downloadFile(fileId: string): Promise<DownloadResult> {
+  async downloadFile(fileId: string, _options?: SyncOptions): Promise<DownloadResult> {
     const drive = getClient()
 
     // Get file metadata

@@ -28,16 +28,21 @@ export interface FolderInfo {
   driveId?: string // SharePoint only
 }
 
+export interface SyncOptions {
+  driveId?: string        // SharePoint only
+  sharedLinkUrl?: string  // Dropbox shared folder URL
+}
+
 export interface StorageClient {
   /**
    * Sync folder contents, returning new/changed files since last sync
    */
-  syncFolder(folderId: string, pageToken: string | null, driveId?: string): Promise<SyncResult>
+  syncFolder(folderId: string, pageToken: string | null, options?: SyncOptions): Promise<SyncResult>
 
   /**
    * Download a file by ID
    */
-  downloadFile(fileId: string, driveId?: string): Promise<DownloadResult>
+  downloadFile(fileId: string, options?: SyncOptions): Promise<DownloadResult>
 
   /**
    * Resolve a shared URL to folder info

@@ -1,7 +1,7 @@
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js'
-import type { StorageClient, SyncResult, DownloadResult, FolderInfo, StorageFile } from './types.js'
+import type { StorageClient, SyncResult, DownloadResult, FolderInfo, StorageFile, SyncOptions } from './types.js'
 import { DocumentTooLargeError, MAX_FILE_SIZE } from './types.js'
 
 let client: Client | null = null
@@ -22,7 +22,8 @@ function getClient(): Client {
 }
 
 export const sharePointClient: StorageClient = {
-  async syncFolder(folderId: string, pageToken: string | null, driveId?: string): Promise<SyncResult> {
+  async syncFolder(folderId: string, pageToken: string | null, options?: SyncOptions): Promise<SyncResult> {
+    const driveId = options?.driveId
     if (!driveId) {
       throw new Error('SharePoint requires driveId')
     }
@@ -47,7 +48,8 @@ export const sharePointClient: StorageClient = {
     }
   },
 
-  async downloadFile(fileId: string, driveId?: string): Promise<DownloadResult> {
+  async downloadFile(fileId: string, options?: SyncOptions): Promise<DownloadResult> {
+    const driveId = options?.driveId
     if (!driveId) {
       throw new Error('SharePoint requires driveId')
     }

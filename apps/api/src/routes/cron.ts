@@ -118,6 +118,7 @@ async function pollEngagement(engagement: {
   id: string
   storageProvider: string
   storageFolderId: string | null
+  storageFolderUrl: string | null
   storageDriveId: string | null
   storagePageToken: string | null
   // Legacy fields
@@ -132,15 +133,22 @@ async function pollEngagement(engagement: {
   const folderId = engagement.storageFolderId || engagement.sharepointFolderId
   const driveId = engagement.storageDriveId || engagement.sharepointDriveId
   const pageToken = engagement.storagePageToken || engagement.deltaLink
+  const folderUrl = engagement.storageFolderUrl
 
-  if (!folderId) return
+  // For Dropbox shared folders, we can sync using the URL even without folderId
+  if (provider !== 'dropbox' && !folderId) return
+  if (provider === 'dropbox' && !folderId && !folderUrl) return
 
   // SharePoint requires driveId
   if (provider === 'sharepoint' && !driveId) return
 
   try {
     const client = getStorageClient(provider)
-    const { files, nextPageToken } = await client.syncFolder(folderId, pageToken, driveId || undefined)
+    const { files, nextPageToken } = await client.syncFolder(
+      folderId || '', // For Dropbox shared links, folderId can be empty
+      pageToken,
+      { driveId: driveId || undefined, sharedLinkUrl: folderUrl || undefined }
+    )
 
     const existingDocs = (engagement.documents as Document[]) || []
     const existingIds = new Set(existingDocs.map(d => d.storageItemId || d.sharepointItemId))
