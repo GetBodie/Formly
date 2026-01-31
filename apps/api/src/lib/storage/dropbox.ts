@@ -98,45 +98,12 @@ export const dropboxClient: StorageClient = {
     }
   },
 
-  async downloadFile(fileId: string, options?: SyncOptions): Promise<DownloadResult> {
+  async downloadFile(fileId: string, _options?: SyncOptions): Promise<DownloadResult> {
     const dbx = getClient()
-    const sharedLinkUrl = options?.sharedLinkUrl
 
-    // Get file metadata first
-    let fileName: string
-    let size: number
+    // Standard file download by ID - works for owned files and shared folder files
+    console.log(`[DROPBOX] Downloading file: ${fileId}`)
 
-    if (sharedLinkUrl && !fileId.startsWith('id:')) {
-      // For shared links, we might have a path instead of an ID
-      // Use shared link metadata
-      const metadata = await dbx.sharingGetSharedLinkFile({
-        url: sharedLinkUrl,
-        path: `/${fileId}`, // Path relative to shared folder
-      })
-      const result = metadata.result as { name: string; size: number }
-      fileName = result.name
-      size = result.size
-
-      // Validate file size
-      if (size > MAX_FILE_SIZE) {
-        throw new DocumentTooLargeError(
-          `File ${fileName} is ${(size / 1024 / 1024).toFixed(1)}MB, ` +
-            `exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit. Please compress and re-upload.`
-        )
-      }
-
-      // The response includes the file content
-      const fileBlob = (metadata.result as unknown as { fileBinary: Buffer }).fileBinary
-
-      return {
-        buffer: Buffer.from(fileBlob),
-        mimeType: getMimeType(fileName),
-        fileName,
-        size,
-      }
-    }
-
-    // Standard file download by ID
     const metadata = await dbx.filesGetMetadata({ path: fileId })
 
     if (metadata.result['.tag'] !== 'file') {
@@ -144,8 +111,10 @@ export const dropboxClient: StorageClient = {
     }
 
     const fileMetadata = metadata.result as { name: string; size: number }
-    fileName = fileMetadata.name
-    size = fileMetadata.size
+    const fileName = fileMetadata.name
+    const size = fileMetadata.size
+
+    console.log(`[DROPBOX] File metadata: ${fileName}, ${size} bytes`)
 
     // Validate file size
     if (size > MAX_FILE_SIZE) {
@@ -159,6 +128,8 @@ export const dropboxClient: StorageClient = {
     const response = await dbx.filesDownload({ path: fileId })
     // Dropbox SDK returns fileBinary on the result in Node.js
     const fileBlob = (response.result as unknown as { fileBinary: Buffer }).fileBinary
+
+    console.log(`[DROPBOX] Downloaded ${fileBlob.length} bytes`)
 
     return {
       buffer: Buffer.from(fileBlob),
