@@ -5,17 +5,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Development
-docker compose up -d          # Start PostgreSQL
-npm run dev                   # Start Next.js dev server (localhost:3000)
+# Development (Monorepo: Hono API + React Web)
+docker compose up -d                           # Start PostgreSQL
+cd apps/api && npm run dev                     # Start API server (localhost:3001)
+cd apps/web && npm run dev                     # Start web server (localhost:3010)
+
+# Or use the dev script (starts both)
+./bin/dev.sh
 
 # Database
-npx prisma generate           # Regenerate Prisma client after schema changes
-npx prisma db push            # Push schema to database (dev only)
+cd apps/api && npx prisma generate             # Regenerate Prisma client
+cd apps/api && npx prisma db push              # Push schema to database (dev only)
 
-# Build & Lint
-npm run build
-npm run lint
+# Build
+cd apps/api && npm run build
+cd apps/web && npm run build
+
+# Deploy to Render
+git push origin main                           # Auto-deploys via render.yaml
 ```
 
 ## Architecture
@@ -42,16 +49,29 @@ All data lives in one `Engagement` model with JSONB columns:
 - `documents` - Classified documents (`Document[]`)
 - `reconciliation` - Matching results and completion status
 
-### Key Files
+### Key Files (Monorepo Structure)
 
-- `src/lib/openai.ts` - Four LLM functions: `generateChecklist`, `classifyDocument`, `reconcile`, `generatePrepBrief`
-- `src/lib/storage/` - Storage provider abstraction (SharePoint & Google Drive)
-- `src/app/api/webhooks/typeform/route.ts` - Receives intake form submissions, triggers checklist generation
-- `src/app/api/cron/poll-storage/route.ts` - Polls storage every 5 min, processes new documents
+**API (`apps/api/src/`):**
+- `routes/engagements.ts` - CRUD operations for engagements
+- `routes/webhooks.ts` - Typeform webhook handler
+- `routes/cron.ts` - Cron endpoints (poll-storage, check-reminders, retry-stuck)
+- `lib/openai.ts` - LLM functions: `generateChecklist`, `classifyDocument`, `reconcile`, `generatePrepBrief`
+- `lib/storage/` - Storage provider abstraction (SharePoint, Google Drive, Dropbox)
+- `lib/agents/assessment.ts` - Document assessment agent
+- `scheduler.ts` - node-cron job definitions
+- `index.ts` - Hono app entry point
+
+**Web (`apps/web/src/`):**
+- `pages/Dashboard.tsx` - Main engagement list
+- `pages/NewEngagement.tsx` - Create engagement form
+- `pages/EngagementDetail.tsx` - Single engagement view
 
 ### Background Processing
 
-Uses Vercel's `waitUntil()` for background work (no queue system). Cron job configured in `vercel.json`.
+Uses `node-cron` for scheduled jobs (runs in the same container):
+- Every 5 minutes: Poll storage for new documents
+- Daily at 9 AM: Send reminder emails
+- Every minute: Retry stuck documents (in_progress > 5 min)
 
 ## Environment Variables
 
@@ -149,4 +169,90 @@ cd apps/api && npx prisma generate
 **Database Sync Issues**: If you get "column not found" errors, ensure schema is synced:
 ```bash
 npx prisma db push
+```
+
+### Render Deployment (added 2026-01-31)
+
+**render.yaml Configuration**: When deploying a monorepo with separate API and web services:
+```yaml
+databases:
+  - name: tax-agent-db
+    plan: free
+
+services:
+  - type: web
+    name: tax-agent-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tax-agent-db
+          property: connectionString
+      - key: FRONTEND_URL
+        fromService:
+          name: tax-agent-web
+          type: web
+          property: host
+```
+
+**Common Deployment Error**: "Unexpected token '<'" means the API is returning HTML (likely a 404 from the frontend) instead of JSON. Check:
+1. API routes are correctly configured
+2. CORS allows the frontend origin
+3. API URL environment variable points to the correct service
+
+### Dropbox Integration (added 2026-01-31)
+
+**Shared Folders Require Special Handling**: When accessing files in Dropbox shared folders:
+- Use `shared_link` parameter in API calls
+- The folder ID from shared link URL differs from regular folder paths
+- Example shared folder ID format: `id:vuUpKVsJxuEAAAAAAAAD_A`
+
+**Token Refresh Flow**: Dropbox access tokens expire. Implement OAuth refresh:
+1. Store both `DROPBOX_ACCESS_TOKEN` and `DROPBOX_REFRESH_TOKEN`
+2. When `expired_access_token` error occurs, use refresh token to get new access token
+3. OAuth authorization URL: `https://www.dropbox.com/oauth2/authorize?client_id={app_key}&response_type=code&token_access_type=offline`
+4. Exchange code for tokens: POST to `https://api.dropboxapi.com/oauth2/token`
+
+### Document Processing Patterns (added 2026-01-31)
+
+**Three-State Model for Resilient Processing**: To handle container restarts and interrupted processing:
+```typescript
+// Document states
+type ProcessingStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
+
+// Before processing
+document.processingStatus = 'in_progress'
+document.processingStartedAt = new Date().toISOString()
+
+// Cron retry for stuck documents (in_progress > 5 minutes)
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+const stuckDocs = documents.filter(d =>
+  d.processingStatus === 'in_progress' &&
+  d.processingStartedAt < fiveMinutesAgo
+)
+```
+
+**Generic Storage Client Pattern**: Use a storage abstraction instead of provider-specific code:
+```typescript
+import { getStorageClient, type StorageProvider } from '../storage/index.js'
+
+// In document processing
+const client = getStorageClient(provider) // 'sharepoint' | 'googledrive' | 'dropbox'
+const { buffer, mimeType, fileName } = await client.downloadFile(itemId, driveId)
+```
+
+### Typeform Webhook (added 2026-01-31)
+
+**HMAC Signature Verification**: Typeform uses **base64** encoding (not hex):
+```typescript
+const hash = crypto.createHmac('sha256', secret).update(payload).digest('base64')
+```
+
+**Programmatic Webhook Setup**: After creating a form via API, create webhook via API:
+```bash
+curl -X PUT "https://api.typeform.com/forms/{form_id}/webhooks/{tag}" \
+  -H "Authorization: Bearer {token}" \
+  -d '{"url": "https://yourapi.com/webhooks/typeform", "enabled": true}'
 ```
