@@ -107,6 +107,60 @@ app.get('/:id', async (c) => {
   return c.json(engagement)
 })
 
+const UpdateEngagementSchema = z.object({
+  storageFolderId: z.string().optional(),
+  storageDriveId: z.string().optional(),
+  storageFolderUrl: z.string().url().optional(),
+  storageProvider: z.enum(['sharepoint', 'gdrive', 'dropbox']).optional(),
+})
+
+// PATCH /api/engagements/:id - Update engagement
+app.patch('/:id', zValidator('json', UpdateEngagementSchema), async (c) => {
+  const id = c.req.param('id')
+  const body = c.req.valid('json')
+
+  const engagement = await prisma.engagement.findUnique({ where: { id } })
+
+  if (!engagement) {
+    return c.json({ error: 'Engagement not found' }, 404)
+  }
+
+  const updateData: Record<string, unknown> = {}
+
+  if (body.storageFolderId !== undefined) {
+    updateData.storageFolderId = body.storageFolderId
+    // Keep legacy field in sync for backwards compatibility
+    if (engagement.storageProvider === 'sharepoint') {
+      updateData.sharepointFolderId = body.storageFolderId
+    }
+  }
+
+  if (body.storageDriveId !== undefined) {
+    updateData.storageDriveId = body.storageDriveId
+    if (engagement.storageProvider === 'sharepoint') {
+      updateData.sharepointDriveId = body.storageDriveId
+    }
+  }
+
+  if (body.storageFolderUrl !== undefined) {
+    updateData.storageFolderUrl = body.storageFolderUrl
+    if (engagement.storageProvider === 'sharepoint') {
+      updateData.sharepointFolderUrl = body.storageFolderUrl
+    }
+  }
+
+  if (body.storageProvider !== undefined) {
+    updateData.storageProvider = body.storageProvider
+  }
+
+  const updated = await prisma.engagement.update({
+    where: { id },
+    data: updateData,
+  })
+
+  return c.json(updated)
+})
+
 // POST /api/engagements/:id/brief - Generate prep brief
 app.post('/:id/brief', async (c) => {
   const id = c.req.param('id')
