@@ -6,13 +6,15 @@ import {
   approveDocument,
   reclassifyDocument,
   sendDocumentFollowUp,
+  getFriendlyIssues,
   DOCUMENT_TYPES,
   type Engagement,
   type ChecklistItem,
   type Document,
-  type Reconciliation
+  type Reconciliation,
+  type FriendlyIssue
 } from '../api/client'
-import { parseIssue, getSuggestedAction, hasErrors, hasWarnings, type ParsedIssue } from '../utils/issues'
+import { hasErrors, hasWarnings } from '../utils/issues'
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-gray-100 text-gray-800',
@@ -279,6 +281,7 @@ export default function EngagementDetail() {
             {selectedDocId && documents.find(d => d.id === selectedDocId) ? (
               <DocumentDetail
                 doc={documents.find(d => d.id === selectedDocId)!}
+                engagementId={id!}
                 onApprove={handleApproveDocument}
                 onReclassify={handleReclassifyDocument}
                 onSendEmail={handleSendFollowUp}
@@ -367,6 +370,7 @@ export default function EngagementDetail() {
 // Document Detail Component
 interface DocumentDetailProps {
   doc: Document
+  engagementId: string
   onApprove: (docId: string) => Promise<void>
   onReclassify: (docId: string, newType: string) => Promise<void>
   onSendEmail: (docId: string) => Promise<void>
@@ -375,14 +379,39 @@ interface DocumentDetailProps {
 
 function DocumentDetail({
   doc,
+  engagementId,
   onApprove,
   onReclassify,
   onSendEmail,
   actionInProgress
 }: DocumentDetailProps) {
   const [selectedType, setSelectedType] = useState('')
-  const issues = doc.issues.map(parseIssue)
+  const [friendlyIssues, setFriendlyIssues] = useState<FriendlyIssue[]>([])
+  const [loadingIssues, setLoadingIssues] = useState(false)
   const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
+
+  // Fetch friendly issues when document changes
+  useEffect(() => {
+    if (doc.issues.length === 0) {
+      setFriendlyIssues([])
+      return
+    }
+
+    setLoadingIssues(true)
+    getFriendlyIssues(engagementId, doc.id)
+      .then(result => setFriendlyIssues(result.issues))
+      .catch(err => {
+        console.error('Failed to load friendly issues:', err)
+        // Fallback to basic display
+        setFriendlyIssues(doc.issues.map(issue => ({
+          original: issue,
+          friendlyMessage: issue,
+          suggestedAction: 'Review and take appropriate action',
+          severity: 'warning' as const
+        })))
+      })
+      .finally(() => setLoadingIssues(false))
+  }, [engagementId, doc.id, doc.issues.length])
 
   return (
     <>
@@ -435,15 +464,19 @@ function DocumentDetail({
         </div>
 
         {/* Issues */}
-        {issues.length > 0 && (
+        {doc.issues.length > 0 && (
           <div>
             <h3 className="text-sm font-medium text-gray-500 uppercase">
               Issues {!hasUnresolvedIssues && <span className="text-green-600">(Resolved)</span>}
             </h3>
             <div className="mt-2 space-y-2">
-              {issues.map((issue, idx) => (
-                <IssueCard key={idx} issue={issue} resolved={!hasUnresolvedIssues} />
-              ))}
+              {loadingIssues ? (
+                <div className="text-sm text-gray-500 italic">Analyzing issues...</div>
+              ) : (
+                friendlyIssues.map((issue, idx) => (
+                  <IssueCard key={idx} issue={issue} resolved={!hasUnresolvedIssues} />
+                ))
+              )}
             </div>
           </div>
         )}
@@ -508,7 +541,7 @@ function DocumentDetail({
 
 // Issue Card Component
 interface IssueCardProps {
-  issue: ParsedIssue
+  issue: FriendlyIssue
   resolved: boolean
 }
 
@@ -523,17 +556,10 @@ function IssueCard({ issue, resolved }: IssueCardProps) {
     <div className={`p-3 rounded border ${bgColor}`}>
       <div className="font-medium text-sm">
         {resolved && <span className="text-green-600 mr-1">✓</span>}
-        {issue.description}
+        {issue.friendlyMessage}
       </div>
-      {(issue.expected || issue.detected) && (
-        <div className="mt-1 text-xs text-gray-600">
-          {issue.expected && <span>Expected: <strong>{issue.expected}</strong></span>}
-          {issue.expected && issue.detected && <span> · </span>}
-          {issue.detected && <span>Found: <strong>{issue.detected}</strong></span>}
-        </div>
-      )}
-      <div className="mt-1 text-xs text-blue-600">
-        → {getSuggestedAction(issue)}
+      <div className="mt-2 text-xs text-blue-600 font-medium">
+        → {issue.suggestedAction}
       </div>
     </div>
   )

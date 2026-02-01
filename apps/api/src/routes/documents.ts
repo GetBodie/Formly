@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { sendEmail } from '../lib/email.js'
 import { parseIssue, getSuggestedAction } from '../lib/issues.js'
-import { generateFollowUpEmail } from '../lib/openai.js'
+import { generateFollowUpEmail, generateFriendlyIssues } from '../lib/openai.js'
 import { DOCUMENT_TYPES, type Document } from '../types.js'
 
 const app = new Hono()
@@ -156,6 +156,52 @@ app.post(
         500
       )
     }
+  }
+)
+
+// GET /api/engagements/:engagementId/documents/:docId/friendly-issues
+// Generate human-friendly issue messages for the admin UI
+app.get(
+  '/:engagementId/documents/:docId/friendly-issues',
+  async (c) => {
+    const { engagementId, docId } = c.req.param()
+
+    const engagement = await prisma.engagement.findUnique({
+      where: { id: engagementId }
+    })
+    if (!engagement) {
+      return c.json({ error: 'Engagement not found' }, 404)
+    }
+
+    const documents = (engagement.documents as Document[]) || []
+    const doc = documents.find(d => d.id === docId)
+    if (!doc) {
+      return c.json({ error: 'Document not found' }, 404)
+    }
+
+    if (doc.issues.length === 0) {
+      return c.json({ issues: [] })
+    }
+
+    // Parse issues to structured format
+    const parsedIssues = doc.issues.map(issueStr => {
+      const parsed = parseIssue(issueStr)
+      return {
+        severity: parsed.severity,
+        type: parsed.type,
+        description: parsed.description
+      }
+    })
+
+    // Generate friendly messages using LLM
+    const friendlyIssues = await generateFriendlyIssues(
+      doc.fileName,
+      doc.documentType,
+      engagement.taxYear,
+      parsedIssues
+    )
+
+    return c.json({ issues: friendlyIssues })
   }
 )
 

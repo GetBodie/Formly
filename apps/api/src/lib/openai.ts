@@ -119,3 +119,145 @@ export async function generatePrepBrief(engagement: {
 
   return response.choices[0]?.message?.content ?? 'Failed to generate brief'
 }
+
+// Fast model for simple tasks like email generation
+const FAST_MODEL = 'gpt-4o-mini'
+
+interface DocumentIssue {
+  severity: string
+  type: string
+  description: string
+  suggestedAction: string
+}
+
+interface DocumentIssueContext {
+  clientName: string
+  taxYear: number
+  fileName: string
+  issues: DocumentIssue[]
+}
+
+interface FriendlyIssue {
+  original: string
+  friendlyMessage: string
+  suggestedAction: string
+  severity: 'error' | 'warning'
+}
+
+/**
+ * Generate human-friendly issue messages for the admin UI
+ */
+export async function generateFriendlyIssues(
+  fileName: string,
+  documentType: string,
+  taxYear: number,
+  issues: Array<{ severity: string; type: string; description: string }>
+): Promise<FriendlyIssue[]> {
+  if (issues.length === 0) return []
+
+  const FriendlyIssuesSchema = z.object({
+    issues: z.array(z.object({
+      original: z.string(),
+      friendlyMessage: z.string(),
+      suggestedAction: z.string(),
+      severity: z.enum(['error', 'warning'])
+    }))
+  })
+
+  try {
+    const response = await openai.chat.completions.parse({
+      model: FAST_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: `You generate clear, helpful issue messages for a tax document review interface.
+For each issue, provide:
+- friendlyMessage: A clear 1-sentence explanation of the problem (no jargon)
+- suggestedAction: A specific action the accountant should take (start with a verb)
+- severity: "error" for blocking issues, "warning" for advisory`
+        },
+        {
+          role: 'user',
+          content: `Document: ${fileName} (${documentType}, Tax Year ${taxYear})
+
+Issues to explain:
+${issues.map((i, idx) => `${idx + 1}. [${i.severity}:${i.type}] ${i.description}`).join('\n')}`
+        }
+      ],
+      response_format: zodResponseFormat(FriendlyIssuesSchema, 'friendly_issues'),
+      temperature: 0.3
+    })
+
+    const parsed = response.choices[0]?.message?.parsed
+    if (parsed) {
+      return parsed.issues.map((fi, idx) => ({
+        ...fi,
+        original: issues[idx]?.description || ''
+      }))
+    }
+  } catch (error) {
+    console.error('[FRIENDLY-ISSUES] Error generating:', error)
+  }
+
+  // Fallback to original issues
+  return issues.map(i => ({
+    original: i.description,
+    friendlyMessage: i.description,
+    suggestedAction: 'Review and take appropriate action',
+    severity: (i.severity === 'error' ? 'error' : 'warning') as 'error' | 'warning'
+  }))
+}
+
+interface GeneratedEmailContent {
+  subject: string
+  body: string
+}
+
+/**
+ * Generate a personalized follow-up email using a fast model
+ */
+export async function generateFollowUpEmail(
+  context: DocumentIssueContext
+): Promise<GeneratedEmailContent> {
+  const EmailSchema = z.object({
+    subject: z.string(),
+    body: z.string()
+  })
+
+  try {
+    const response = await openai.chat.completions.parse({
+      model: FAST_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: `You write professional, friendly, concise follow-up emails for a tax document collection service. Be specific but not overly technical. Use plain text for the body (no HTML). Keep emails under 150 words.`
+        },
+        {
+          role: 'user',
+          content: `Write a follow-up email for:
+Client: ${context.clientName}
+Tax Year: ${context.taxYear}
+Document: ${context.fileName}
+
+Issues found:
+${context.issues.map(i => `- [${i.severity.toUpperCase()}] ${i.type}: ${i.description}. Action needed: ${i.suggestedAction}`).join('\n')}`
+        }
+      ],
+      response_format: zodResponseFormat(EmailSchema, 'email'),
+      temperature: 0.7
+    })
+
+    const parsed = response.choices[0]?.message?.parsed
+    if (parsed) {
+      return parsed
+    }
+  } catch (error) {
+    console.error('[EMAIL-GEN] Error generating email:', error)
+  }
+
+  // Fallback to basic message
+  return {
+    subject: `Action Needed: Document Issue - ${context.taxYear}`,
+    body: `Hi ${context.clientName},\n\nWe found some issues with ${context.fileName} that need your attention:\n\n${context.issues.map(i => `- ${i.description}`).join('\n')}\n\nPlease upload a corrected version.\n\nThank you.`
+  }
+}
