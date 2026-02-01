@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { getEngagement, generateBrief, type Engagement, type ChecklistItem, type Document, type Reconciliation } from '../api/client'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
+import {
+  getEngagement,
+  generateBrief,
+  approveDocument,
+  reclassifyDocument,
+  sendDocumentFollowUp,
+  DOCUMENT_TYPES,
+  type Engagement,
+  type ChecklistItem,
+  type Document,
+  type Reconciliation
+} from '../api/client'
+import { parseIssue, getSuggestedAction, hasErrors, hasWarnings, type ParsedIssue } from '../utils/issues'
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-gray-100 text-gray-800',
@@ -17,10 +29,14 @@ const itemStatusColors: Record<string, string> = {
 
 export default function EngagementDetail() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [engagement, setEngagement] = useState<Engagement | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [generatingBrief, setGeneratingBrief] = useState(false)
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null)
+
+  const selectedDocId = searchParams.get('doc')
 
   useEffect(() => {
     if (!id) return
@@ -42,6 +58,63 @@ export default function EngagementDetail() {
       setError(err instanceof Error ? err.message : 'Failed to generate brief')
     } finally {
       setGeneratingBrief(false)
+    }
+  }
+
+  async function handleApproveDocument(docId: string) {
+    if (!id || !engagement) return
+
+    setActionInProgress('approve')
+    try {
+      const result = await approveDocument(id, docId)
+      const documents = (engagement.documents || []).map(d =>
+        d.id === docId ? result.document : d
+      )
+      setEngagement({ ...engagement, documents })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve document')
+    } finally {
+      setActionInProgress(null)
+    }
+  }
+
+  async function handleReclassifyDocument(docId: string, newType: string) {
+    if (!id || !engagement || !newType) return
+
+    setActionInProgress('reclassify')
+    try {
+      const result = await reclassifyDocument(id, docId, newType)
+      const documents = (engagement.documents || []).map(d =>
+        d.id === docId ? result.document : d
+      )
+      setEngagement({ ...engagement, documents })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reclassify document')
+    } finally {
+      setActionInProgress(null)
+    }
+  }
+
+  async function handleSendFollowUp(docId: string) {
+    if (!id || !engagement) return
+
+    setActionInProgress('email')
+    try {
+      await sendDocumentFollowUp(id, docId)
+      setError(null) // Clear any previous errors
+      alert('Follow-up email sent successfully')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send email')
+    } finally {
+      setActionInProgress(null)
+    }
+  }
+
+  function selectDocument(docId: string | null) {
+    if (docId) {
+      setSearchParams({ doc: docId })
+    } else {
+      setSearchParams({})
     }
   }
 
@@ -132,81 +205,134 @@ export default function EngagementDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Checklist */}
-          <div className="bg-white p-6 rounded-lg border">
-            <h2 className="text-xl font-semibold mb-4">
-              Checklist ({checklist.length} items)
-            </h2>
-            {checklist.length === 0 ? (
-              <p className="text-gray-500">
-                {engagement.status === 'PENDING'
-                  ? 'Waiting for client to complete intake form'
-                  : 'No checklist generated yet'}
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {checklist.map(item => {
-                  const itemStatus = itemStatusMap.get(item.id)
-                  const status = itemStatus?.status || item.status
+        {/* Document Review Split View */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Document List */}
+          <div className="bg-white rounded-lg border">
+            <div className="p-4 border-b">
+              <h2 className="font-semibold">Documents ({documents.length})</h2>
+            </div>
+            <div className="divide-y max-h-[600px] overflow-y-auto">
+              {documents.map(doc => {
+                const docHasErrors = hasErrors(doc.issues)
+                const docHasWarnings = hasWarnings(doc.issues)
+                const isResolved = doc.issues.length === 0 || doc.approved === true
+                const isSelected = doc.id === selectedDocId
 
-                  return (
-                    <li key={item.id} className="p-3 border rounded-lg">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <span className={status === 'complete' ? 'line-through text-gray-400' : ''}>
-                            {item.title}
-                          </span>
-                          <span className="ml-2 text-xs text-gray-400">({item.priority})</span>
+                const bgColor = isSelected
+                  ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                  : docHasErrors && !isResolved
+                  ? 'bg-red-50 border-l-4 border-l-red-500'
+                  : docHasWarnings && !isResolved
+                  ? 'bg-yellow-50 border-l-4 border-l-yellow-500'
+                  : 'hover:bg-gray-50'
+
+                return (
+                  <button
+                    key={doc.id}
+                    onClick={() => selectDocument(doc.id)}
+                    className={`block w-full text-left p-4 transition-colors ${bgColor}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium flex items-center gap-2">
+                          {isResolved ? (
+                            <span className="text-green-600">✓</span>
+                          ) : docHasErrors ? (
+                            <span className="text-red-600">✗</span>
+                          ) : docHasWarnings ? (
+                            <span className="text-yellow-600">⚠</span>
+                          ) : null}
+                          {doc.fileName}
                         </div>
-                        <span className={`text-sm font-medium ${itemStatusColors[status]}`}>
-                          {status}
-                        </span>
+                        <div className="text-sm text-gray-600">
+                          {doc.documentType}
+                          {doc.taxYear && ` · ${doc.taxYear}`}
+                          {doc.override && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                              overridden
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">{item.why}</p>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
+                      {doc.issues.length > 0 && !isResolved && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          docHasErrors ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {doc.issues.length} issue{doc.issues.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+              {documents.length === 0 && (
+                <div className="p-4 text-gray-500 text-center">
+                  No documents uploaded yet
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Documents */}
-          <div className="bg-white p-6 rounded-lg border">
-            <h2 className="text-xl font-semibold mb-4">
-              Documents ({documents.length})
-            </h2>
-            {documents.length === 0 ? (
-              <p className="text-gray-500">No documents uploaded yet</p>
+          {/* Detail Pane */}
+          <div className="bg-white rounded-lg border">
+            {selectedDocId && documents.find(d => d.id === selectedDocId) ? (
+              <DocumentDetail
+                doc={documents.find(d => d.id === selectedDocId)!}
+                onApprove={handleApproveDocument}
+                onReclassify={handleReclassifyDocument}
+                onSendEmail={handleSendFollowUp}
+                actionInProgress={actionInProgress}
+              />
             ) : (
-              <ul className="space-y-3">
-                {documents.map(doc => (
-                  <li key={doc.id} className="p-3 border rounded-lg">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="font-medium">{doc.fileName}</p>
-                        <p className="text-sm text-gray-600">
-                          {doc.documentType} ({Math.round(doc.confidence * 100)}% confidence)
-                        </p>
-                        {doc.taxYear && (
-                          <p className="text-xs text-gray-500">Tax Year: {doc.taxYear}</p>
-                        )}
-                      </div>
-                    </div>
-                    {doc.issues.length > 0 && (
-                      <div className="mt-2 text-sm text-red-600">
-                        {doc.issues.join(', ')}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <div className="p-6 text-center text-gray-500">
+                <div className="text-4xl mb-2">📄</div>
+                <p>Select a document from the list to view details</p>
+              </div>
             )}
           </div>
         </div>
 
+        {/* Checklist */}
+        <div className="bg-white p-6 rounded-lg border mb-6">
+          <h2 className="text-xl font-semibold mb-4">
+            Checklist ({checklist.length} items)
+          </h2>
+          {checklist.length === 0 ? (
+            <p className="text-gray-500">
+              {engagement.status === 'PENDING'
+                ? 'Waiting for client to complete intake form'
+                : 'No checklist generated yet'}
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {checklist.map(item => {
+                const itemStatus = itemStatusMap.get(item.id)
+                const status = itemStatus?.status || item.status
+
+                return (
+                  <li key={item.id} className="p-3 border rounded-lg">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <span className={status === 'complete' ? 'line-through text-gray-400' : ''}>
+                          {item.title}
+                        </span>
+                        <span className="ml-2 text-xs text-gray-400">({item.priority})</span>
+                      </div>
+                      <span className={`text-sm font-medium ${itemStatusColors[status]}`}>
+                        {status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">{item.why}</p>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
         {/* Prep Brief */}
-        <div className="mt-6 bg-white p-6 rounded-lg border">
+        <div className="bg-white p-6 rounded-lg border">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Prep Brief</h2>
             {engagement.status === 'READY' && !engagement.prepBrief && (
@@ -233,6 +359,181 @@ export default function EngagementDetail() {
             </p>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Document Detail Component
+interface DocumentDetailProps {
+  doc: Document
+  onApprove: (docId: string) => Promise<void>
+  onReclassify: (docId: string, newType: string) => Promise<void>
+  onSendEmail: (docId: string) => Promise<void>
+  actionInProgress: string | null
+}
+
+function DocumentDetail({
+  doc,
+  onApprove,
+  onReclassify,
+  onSendEmail,
+  actionInProgress
+}: DocumentDetailProps) {
+  const [selectedType, setSelectedType] = useState('')
+  const issues = doc.issues.map(parseIssue)
+  const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
+
+  return (
+    <>
+      <div className="p-4 border-b">
+        <h2 className="font-semibold">Document Detail</h2>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* File Info */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 uppercase">Uploaded File</h3>
+          <p className="mt-1 font-medium">{doc.fileName}</p>
+          {doc.classifiedAt && (
+            <p className="text-sm text-gray-500">
+              Classified {new Date(doc.classifiedAt).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+
+        {/* Detected Info */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 uppercase">System Detected</h3>
+          <div className="mt-1 grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-gray-500">Type:</span>{' '}
+              <span className="font-medium">{doc.documentType}</span>
+              {doc.override && (
+                <span className="text-gray-400 line-through ml-2">
+                  {doc.override.originalType}
+                </span>
+              )}
+            </div>
+            <div>
+              <span className="text-gray-500">Tax Year:</span>{' '}
+              <span className="font-medium">{doc.taxYear || 'Unknown'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Confidence:</span>{' '}
+              <span className="font-medium">{Math.round(doc.confidence * 100)}%</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Status:</span>{' '}
+              <span className={`font-medium ${
+                doc.approved ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {doc.approved ? 'Approved' : 'Pending Review'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Issues */}
+        {issues.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 uppercase">
+              Issues {!hasUnresolvedIssues && <span className="text-green-600">(Resolved)</span>}
+            </h3>
+            <div className="mt-2 space-y-2">
+              {issues.map((issue, idx) => (
+                <IssueCard key={idx} issue={issue} resolved={!hasUnresolvedIssues} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        {hasUnresolvedIssues && (
+          <div className="pt-4 border-t space-y-2">
+            <button
+              onClick={() => onSendEmail(doc.id)}
+              disabled={actionInProgress !== null}
+              className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {actionInProgress === 'email' ? 'Sending...' : '📧 Send Follow-up Email'}
+            </button>
+
+            <button
+              onClick={() => onApprove(doc.id)}
+              disabled={actionInProgress !== null}
+              className="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {actionInProgress === 'approve' ? 'Approving...' : '✓ Approve Anyway'}
+            </button>
+
+            <div className="flex gap-2">
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="flex-1 py-2 px-4 border rounded"
+              >
+                <option value="">Change type to...</option>
+                {DOCUMENT_TYPES.filter(t => t !== doc.documentType && t !== 'PENDING').map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => {
+                  if (selectedType) {
+                    onReclassify(doc.id, selectedType)
+                    setSelectedType('')
+                  }
+                }}
+                disabled={!selectedType || actionInProgress !== null}
+                className="py-2 px-4 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionInProgress === 'reclassify' ? '...' : '✎ Reclassify'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Override info */}
+        {doc.override && (
+          <div className="pt-4 border-t">
+            <h3 className="text-sm font-medium text-gray-500 uppercase">Override Note</h3>
+            <p className="mt-1 text-sm">{doc.override.reason}</p>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// Issue Card Component
+interface IssueCardProps {
+  issue: ParsedIssue
+  resolved: boolean
+}
+
+function IssueCard({ issue, resolved }: IssueCardProps) {
+  const bgColor = resolved
+    ? 'bg-gray-50 border-gray-200'
+    : issue.severity === 'error'
+    ? 'bg-red-50 border-red-200'
+    : 'bg-yellow-50 border-yellow-200'
+
+  return (
+    <div className={`p-3 rounded border ${bgColor}`}>
+      <div className="font-medium text-sm">
+        {resolved && <span className="text-green-600 mr-1">✓</span>}
+        {issue.description}
+      </div>
+      {(issue.expected || issue.detected) && (
+        <div className="mt-1 text-xs text-gray-600">
+          {issue.expected && <span>Expected: <strong>{issue.expected}</strong></span>}
+          {issue.expected && issue.detected && <span> · </span>}
+          {issue.detected && <span>Found: <strong>{issue.detected}</strong></span>}
+        </div>
+      )}
+      <div className="mt-1 text-xs text-blue-600">
+        → {getSuggestedAction(issue)}
       </div>
     </div>
   )

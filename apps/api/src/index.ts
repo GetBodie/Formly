@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 
 import engagements from './routes/engagements.js'
+import documents from './routes/documents.js'
 import webhooks from './routes/webhooks.js'
 import cron from './routes/cron.js'
 import { initScheduler } from './scheduler.js'
@@ -23,6 +24,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 
 // Mount routes
 app.route('/api/engagements', engagements)
+app.route('/api/engagements', documents) // Document-specific actions
 app.route('/api/webhooks', webhooks)
 app.route('/api/cron', cron)
 

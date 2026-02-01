@@ -177,6 +177,9 @@ async function pollEngagement(engagement: {
         taxYear: null,
         issues: [],
         classifiedAt: null,
+        approved: null,
+        approvedAt: null,
+        override: null,
       }
 
       existingDocs.push(newDoc)

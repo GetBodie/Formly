@@ -26,6 +26,15 @@ interface ChecklistItem {
   documentIds: string[]
 }
 
+// Shared constant for document types
+const DOCUMENT_TYPES = ['W-2', '1099-NEC', '1099-MISC', '1099-INT', 'K-1', 'RECEIPT', 'STATEMENT', 'OTHER', 'PENDING'] as const
+type DocumentType = (typeof DOCUMENT_TYPES)[number]
+
+interface DocumentOverride {
+  originalType: string
+  reason: string
+}
+
 interface Document {
   id: string
   fileName: string
@@ -36,6 +45,10 @@ interface Document {
   taxYear: number | null
   issues: string[]
   classifiedAt: string | null
+  // Document review fields
+  approved: boolean | null
+  approvedAt: string | null
+  override: DocumentOverride | null
 }
 
 interface Reconciliation {
@@ -95,4 +108,35 @@ export async function generateBrief(id: string): Promise<{ success: boolean; bri
   })
 }
 
-export type { Engagement, ChecklistItem, Document, Reconciliation, CreateEngagementData }
+// Document review actions
+export async function approveDocument(
+  engagementId: string,
+  docId: string
+): Promise<{ success: boolean; document: Document }> {
+  return fetchApi(`/api/engagements/${engagementId}/documents/${docId}/approve`, {
+    method: 'POST',
+  })
+}
+
+export async function reclassifyDocument(
+  engagementId: string,
+  docId: string,
+  newType: string
+): Promise<{ success: boolean; document: Document }> {
+  return fetchApi(`/api/engagements/${engagementId}/documents/${docId}/reclassify`, {
+    method: 'POST',
+    body: JSON.stringify({ newType }),
+  })
+}
+
+export async function sendDocumentFollowUp(
+  engagementId: string,
+  docId: string
+): Promise<{ success: boolean; message: string }> {
+  return fetchApi(`/api/engagements/${engagementId}/documents/${docId}/send-followup`, {
+    method: 'POST',
+  })
+}
+
+export { DOCUMENT_TYPES }
+export type { Engagement, ChecklistItem, Document, DocumentType, DocumentOverride, Reconciliation, CreateEngagementData }

@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+// Shared constant for document types
+export const DOCUMENT_TYPES = ['W-2', '1099-NEC', '1099-MISC', '1099-INT', 'K-1', 'RECEIPT', 'STATEMENT', 'OTHER', 'PENDING'] as const
+export type DocumentType = (typeof DOCUMENT_TYPES)[number]
+
 export const ChecklistItemSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -22,6 +26,13 @@ export const DocumentSchema = z.object({
   // Processing state tracking for retry logic
   processingStatus: z.enum(['pending', 'in_progress', 'classified']).optional(), // defaults to 'pending' if missing
   processingStartedAt: z.string().nullable().optional(), // ISO timestamp when processing started
+  // Document review fields
+  approved: z.boolean().nullable().default(null), // null = not reviewed, true = approved
+  approvedAt: z.string().nullable().default(null),
+  override: z.object({
+    originalType: z.string(),
+    reason: z.string(),
+  }).nullable().default(null),
 })
 
 export const ReconciliationSchema = z.object({

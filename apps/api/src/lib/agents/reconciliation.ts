@@ -51,7 +51,9 @@ export const reconciliationServer = createSdkMcpServer({
                 documentType: doc.documentType,
                 confidence: doc.confidence,
                 taxYear: doc.taxYear,
-                issues: doc.issues
+                issues: doc.issues,
+                approved: doc.approved,
+                override: doc.override
               })),
               currentReconciliation: reconciliation ? {
                 completionPercentage: reconciliation.completionPercentage,
@@ -269,18 +271,21 @@ export const reconciliationServer = createSdkMcpServer({
         const highPriorityComplete = highPriorityItems.every(i => i.status === 'complete')
 
         // Check if any documents have unresolved issues
-        const documentsWithIssues = documents.filter(d => d.issues.length > 0)
+        // A document is "resolved" if it has no issues OR it has been approved by accountant
+        const documentsWithUnresolvedIssues = documents.filter(d =>
+          d.issues.length > 0 && d.approved !== true
+        )
 
         // Determine readiness
         const isReady = (reconciliation?.completionPercentage === 100) ||
-          (highPriorityComplete && documentsWithIssues.length === 0)
+          (highPriorityComplete && documentsWithUnresolvedIssues.length === 0)
 
         const reasons: string[] = []
         if (!highPriorityComplete) {
           reasons.push('Not all high-priority items are complete')
         }
-        if (documentsWithIssues.length > 0) {
-          reasons.push(`${documentsWithIssues.length} document(s) have unresolved issues`)
+        if (documentsWithUnresolvedIssues.length > 0) {
+          reasons.push(`${documentsWithUnresolvedIssues.length} document(s) have unresolved issues`)
         }
         if (reconciliation?.completionPercentage !== 100) {
           reasons.push(`Completion is ${reconciliation?.completionPercentage ?? 0}%, not 100%`)
@@ -293,7 +298,7 @@ export const reconciliationServer = createSdkMcpServer({
               isReady,
               completionPercentage: reconciliation?.completionPercentage ?? 0,
               highPriorityComplete,
-              documentsWithIssues: documentsWithIssues.length,
+              documentsWithUnresolvedIssues: documentsWithUnresolvedIssues.length,
               reasons: isReady ? ['All requirements met'] : reasons
             }, null, 2)
           }]
