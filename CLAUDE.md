@@ -256,3 +256,91 @@ curl -X PUT "https://api.typeform.com/forms/{form_id}/webhooks/{tag}" \
   -H "Authorization: Bearer {token}" \
   -d '{"url": "https://yourapi.com/webhooks/typeform", "enabled": true}'
 ```
+
+### Parseable Issue String Format (added 2026-01-31)
+
+**Structured Data in Strings**: Store structured data as parseable strings to avoid schema bloat while keeping data queryable:
+```typescript
+// Format: [SEVERITY:TYPE:EXPECTED:DETECTED] Human-readable description
+const issue = "[ERROR:wrong_year:2025:2024] Document is from 2024, expected 2025"
+const issue2 = "[WARNING:low_confidence::] Classification confidence below 70%"
+
+// Parser function derives severity/expected/detected at render time
+export function parseIssue(issue: string): ParsedIssue {
+  const match = issue.match(/^\[(\w+):(\w+):([^:]*):([^\]]*)\]\s*(.+)$/)
+  if (!match) return { severity: 'warning', type: 'other', expected: null, detected: null, description: issue }
+
+  const [, severity, type, expected, detected, description] = match
+  return { severity: severity.toLowerCase(), type, expected: expected || null, detected: detected || null, description }
+}
+```
+
+**Benefits over JSON/nested objects**:
+- Human-readable in database/logs
+- No schema migration for new issue types
+- Easy to grep/search
+- Backwards compatible (parser handles legacy formats)
+
+### Document Review UI Patterns (added 2026-01-31)
+
+**Split-View with URL State**: Use URL query params for selection state instead of React state:
+```tsx
+// URL: /engagements/[id]?doc=[docId]
+// Benefits: shareable, bookmarkable, works with browser back button
+interface Props {
+  params: { id: string }
+  searchParams: { doc?: string }
+}
+
+const selectedDoc = searchParams.doc
+  ? documents.find(d => d.id === searchParams.doc)
+  : null
+```
+
+**Simple Approval Model**: Prefer boolean + timestamp over complex status enums:
+```typescript
+// Instead of: reviewStatus: 'pending' | 'approved' | 'rejected' | 'needs_clarification'
+// Use:
+approved: z.boolean().nullable().default(null)  // null = not reviewed, true = approved
+approvedAt: z.string().nullable().default(null)
+
+// "Resolved" = no issues OR explicitly approved
+const isResolved = (doc) => doc.issues.length === 0 || doc.approved === true
+```
+
+**Override Pattern for Reclassification**: Track original values when users override system decisions:
+```typescript
+override: z.object({
+  originalType: z.string(),  // What AI classified it as
+  reason: z.string(),        // Why user changed it
+}).nullable().default(null)
+```
+
+### Shared Constants Pattern (added 2026-01-31)
+
+**Export Constants from Types**: Define allowed values once and derive types from them:
+```typescript
+// src/types.ts
+export const DOCUMENT_TYPES = ['W-2', '1099-NEC', '1099-MISC', '1099-INT', 'K-1', 'RECEIPT', 'STATEMENT', 'OTHER'] as const
+export type DocumentType = (typeof DOCUMENT_TYPES)[number]
+
+// Usage in components - enables runtime validation AND type safety
+if (!DOCUMENT_TYPES.includes(newType as any)) {
+  throw new Error('Invalid document type')
+}
+```
+
+### Dropbox Download Simplification (added 2026-01-31)
+
+**Use `downloadZip` for Shared Folders**: When downloading from Dropbox shared folders, `downloadZip` is simpler than `download` for single files:
+```typescript
+// The downloadZip endpoint handles shared folder permissions better
+const response = await this.client.filesDownloadZip({ path: folderPath })
+// Then extract the single file from the zip
+```
+
+**Logging for Storage Operations**: Add detailed logging for debugging storage issues:
+```typescript
+console.log(`[DROPBOX] Listing folder: ${path}`)
+console.log(`[DROPBOX] Found ${entries.length} entries`)
+console.log(`[DROPBOX] Downloading: ${entry.name} (${entry.size} bytes)`)
