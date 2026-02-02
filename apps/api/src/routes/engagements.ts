@@ -17,7 +17,6 @@ const CreateEngagementSchema = z.object({
   storageFolderUrl: z.string().url(),
   // Legacy field - accept but prefer storageFolderUrl
   sharepointFolderUrl: z.string().url().optional(),
-  typeformFormId: z.string().min(1),
 })
 
 // GET /api/engagements - List all engagements
@@ -32,6 +31,12 @@ app.get('/', async (c) => {
 app.post('/', zValidator('json', CreateEngagementSchema), async (c) => {
   try {
     const body = c.req.valid('json')
+
+    // Get Typeform Form ID from environment
+    const typeformFormId = process.env.TYPEFORM_FORM_ID
+    if (!typeformFormId) {
+      return c.json({ error: 'TYPEFORM_FORM_ID environment variable not set' }, 500)
+    }
 
     // Use storageFolderUrl, fallback to legacy sharepointFolderUrl
     const folderUrl = body.storageFolderUrl || body.sharepointFolderUrl!
@@ -66,7 +71,7 @@ app.post('/', zValidator('json', CreateEngagementSchema), async (c) => {
         clientName: body.clientName,
         clientEmail: body.clientEmail,
         taxYear: body.taxYear,
-        typeformFormId: body.typeformFormId,
+        typeformFormId,
         // New storage fields
         storageProvider: provider,
         storageFolderUrl: folderUrl,

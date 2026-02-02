@@ -18,7 +18,6 @@ export default function NewEngagement() {
       clientEmail: formData.get('clientEmail') as string,
       taxYear: parseInt(formData.get('taxYear') as string, 10),
       storageFolderUrl: formData.get('storageFolderUrl') as string,
-      typeformFormId: formData.get('typeformFormId') as string,
     }
 
     try {
@@ -90,7 +89,7 @@ export default function NewEngagement() {
 
             <div>
               <label htmlFor="storageFolderUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                Storage Folder URL
+                Dropbox Folder URL
               </label>
               <input
                 type="url"
@@ -98,27 +97,10 @@ export default function NewEngagement() {
                 name="storageFolderUrl"
                 required
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="https://drive.google.com/drive/folders/..."
+                placeholder="https://www.dropbox.com/scl/fo/..."
               />
               <p className="text-sm text-gray-500 mt-1">
-                The folder where the client will upload documents (SharePoint, Google Drive, or Dropbox)
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="typeformFormId" className="block text-sm font-medium text-gray-700 mb-2">
-                Typeform Form ID
-              </label>
-              <input
-                type="text"
-                id="typeformFormId"
-                name="typeformFormId"
-                required
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="abc123xyz"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Found in your Typeform URL: typeform.com/to/[FORM_ID]
+                The Dropbox shared folder where the client will upload documents
               </p>
             </div>
 

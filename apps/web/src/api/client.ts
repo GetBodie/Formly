@@ -67,7 +67,6 @@ interface CreateEngagementData {
   clientEmail: string
   taxYear: number
   storageFolderUrl: string
-  typeformFormId: string
 }
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
