@@ -1,6 +1,8 @@
-import { runOutreachAgent, type OutreachTrigger } from './outreach.js'
 import { runAssessmentAgent, type AssessmentTrigger } from './assessment.js'
 import { runReconciliationAgent, type ReconciliationTrigger } from './reconciliation.js'
+import { sendEmail, emailTemplates } from '../email.js'
+import { prisma } from '../prisma.js'
+import type { ChecklistItem } from '../../types.js'
 
 // All possible event types
 export type AgentEvent =
@@ -17,19 +19,13 @@ export async function dispatch(event: AgentEvent): Promise<void> {
 
   switch (event.type) {
     case 'engagement_created':
-      // Outreach Agent sends welcome email
-      await runOutreachAgent({
-        trigger: 'engagement_created',
-        engagementId: event.engagementId
-      })
+      // Send welcome email directly
+      await sendWelcomeEmail(event.engagementId)
       break
 
     case 'intake_complete':
-      // Outreach Agent sends SharePoint instructions
-      await runOutreachAgent({
-        trigger: 'intake_complete',
-        engagementId: event.engagementId
-      })
+      // Send upload instructions directly
+      await sendUploadInstructions(event.engagementId)
       break
 
     case 'document_uploaded':
@@ -54,15 +50,8 @@ export async function dispatch(event: AgentEvent): Promise<void> {
 
     case 'document_assessed':
       if (event.hasIssues) {
-        // Outreach Agent notifies client about issues
-        await runOutreachAgent({
-          trigger: 'document_issues',
-          engagementId: event.engagementId,
-          additionalContext: {
-            documentId: event.documentId,
-            documentType: event.documentType
-          }
-        })
+        // TODO: Send document issues email when needed
+        console.log(`[DISPATCHER] Document ${event.documentId} has issues, skipping email for now`)
       } else {
         // Reconciliation Agent matches and checks completion
         const reconcileResult = await runReconciliationAgent({
@@ -73,21 +62,14 @@ export async function dispatch(event: AgentEvent): Promise<void> {
         })
 
         if (reconcileResult.isReady) {
-          // Outreach Agent notifies client and accountant
-          await runOutreachAgent({
-            trigger: 'engagement_complete',
-            engagementId: event.engagementId
-          })
+          await sendCompletionEmails(event.engagementId)
         }
       }
       break
 
     case 'stale_engagement':
-      // Outreach Agent sends reminder
-      await runOutreachAgent({
-        trigger: 'stale_engagement',
-        engagementId: event.engagementId
-      })
+      // TODO: Send reminder email when needed
+      console.log(`[DISPATCHER] Stale engagement ${event.engagementId}, skipping reminder for now`)
       break
 
     case 'check_completion':
@@ -98,10 +80,7 @@ export async function dispatch(event: AgentEvent): Promise<void> {
       })
 
       if (checkResult.isReady) {
-        await runOutreachAgent({
-          trigger: 'engagement_complete',
-          engagementId: event.engagementId
-        })
+        await sendCompletionEmails(event.engagementId)
       }
       break
 
@@ -110,6 +89,109 @@ export async function dispatch(event: AgentEvent): Promise<void> {
   }
 }
 
+// Helper functions for direct email sending
+
+async function sendWelcomeEmail(engagementId: string): Promise<void> {
+  const engagement = await prisma.engagement.findUnique({ where: { id: engagementId } })
+  if (!engagement) {
+    console.error(`[EMAIL] Engagement not found: ${engagementId}`)
+    return
+  }
+
+  const engagementData = {
+    id: engagement.id,
+    clientName: engagement.clientName,
+    clientEmail: engagement.clientEmail,
+    taxYear: engagement.taxYear,
+    typeformFormId: engagement.typeformFormId,
+    storageFolderUrl: engagement.storageFolderUrl,
+    sharepointFolderUrl: engagement.storageFolderUrl,
+  }
+
+  try {
+    const template = emailTemplates.welcome(engagementData)
+    await sendEmail(engagement.clientEmail, template)
+    await prisma.engagement.update({
+      where: { id: engagementId },
+      data: { lastActivityAt: new Date() }
+    })
+    console.log(`[EMAIL] Welcome email sent to ${engagement.clientEmail}`)
+  } catch (error) {
+    console.error(`[EMAIL] Failed to send welcome email:`, error)
+  }
+}
+
+async function sendUploadInstructions(engagementId: string): Promise<void> {
+  const engagement = await prisma.engagement.findUnique({ where: { id: engagementId } })
+  if (!engagement) {
+    console.error(`[EMAIL] Engagement not found: ${engagementId}`)
+    return
+  }
+
+  const engagementData = {
+    id: engagement.id,
+    clientName: engagement.clientName,
+    clientEmail: engagement.clientEmail,
+    taxYear: engagement.taxYear,
+    typeformFormId: engagement.typeformFormId,
+    storageFolderUrl: engagement.storageFolderUrl,
+    sharepointFolderUrl: engagement.storageFolderUrl,
+    checklist: engagement.checklist as ChecklistItem[] | null,
+  }
+
+  try {
+    const template = emailTemplates.sharepoint_instructions(engagementData)
+    await sendEmail(engagement.clientEmail, template)
+    await prisma.engagement.update({
+      where: { id: engagementId },
+      data: { lastActivityAt: new Date() }
+    })
+    console.log(`[EMAIL] Upload instructions sent to ${engagement.clientEmail}`)
+  } catch (error) {
+    console.error(`[EMAIL] Failed to send upload instructions:`, error)
+  }
+}
+
+async function sendCompletionEmails(engagementId: string): Promise<void> {
+  const engagement = await prisma.engagement.findUnique({ where: { id: engagementId } })
+  if (!engagement) {
+    console.error(`[EMAIL] Engagement not found: ${engagementId}`)
+    return
+  }
+
+  const engagementData = {
+    id: engagement.id,
+    clientName: engagement.clientName,
+    clientEmail: engagement.clientEmail,
+    taxYear: engagement.taxYear,
+    typeformFormId: engagement.typeformFormId,
+    storageFolderUrl: engagement.storageFolderUrl,
+    sharepointFolderUrl: engagement.storageFolderUrl,
+  }
+
+  try {
+    // Send completion email to client
+    const clientTemplate = emailTemplates.complete(engagementData)
+    await sendEmail(engagement.clientEmail, clientTemplate)
+    console.log(`[EMAIL] Completion email sent to ${engagement.clientEmail}`)
+
+    // Send notification to accountant
+    const accountantEmail = process.env.ACCOUNTANT_EMAIL
+    if (accountantEmail) {
+      const accountantTemplate = emailTemplates.accountant_notification(engagementData)
+      await sendEmail(accountantEmail, accountantTemplate)
+      console.log(`[EMAIL] Accountant notification sent to ${accountantEmail}`)
+    }
+
+    await prisma.engagement.update({
+      where: { id: engagementId },
+      data: { lastActivityAt: new Date() }
+    })
+  } catch (error) {
+    console.error(`[EMAIL] Failed to send completion emails:`, error)
+  }
+}
+
 // Export individual agent runners for direct use
-export { runOutreachAgent, runAssessmentAgent, runReconciliationAgent }
-export type { OutreachTrigger, AssessmentTrigger, ReconciliationTrigger }
+export { runAssessmentAgent, runReconciliationAgent }
+export type { AssessmentTrigger, ReconciliationTrigger }
