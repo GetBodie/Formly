@@ -14,7 +14,7 @@ const app = new Hono()
 // Middleware
 app.use('*', logger())
 app.use('*', cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3010',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
@@ -29,7 +29,7 @@ app.route('/api/webhooks', webhooks)
 app.route('/api/cron', cron)
 
 // Start server
-const port = parseInt(process.env.PORT || '3001', 10)
+const port = parseInt(process.env.PORT || '3009', 10)
 
 serve({
   fetch: app.fetch,

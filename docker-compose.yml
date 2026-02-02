@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,6 +10,59 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.dev
+    container_name: tax-agent-api
+    ports:
+      - "3009:3009"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tax_agent
+      PORT: "3009"
+      FRONTEND_URL: http://localhost:3010
+      ENABLE_SCHEDULER: "false"
+    volumes:
+      - ./apps/api/src:/app/src
+      - ./apps/api/prisma:/app/prisma
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.dev
+    container_name: tax-agent-web
+    ports:
+      - "3010:3010"
+    environment:
+      VITE_API_URL: http://localhost:3009
+    volumes:
+      - ./apps/web/src:/app/src
+      - ./apps/web/index.html:/app/index.html
+      - ./apps/web/vite.config.ts:/app/vite.config.ts
+    depends_on:
+      - api
+
+  tunnel:
+    image: ngrok/ngrok:latest
+    container_name: tax-agent-tunnel
+    command: http api:3009 --log stdout
+    ports:
+      - "4040:4040"
+    env_file:
+      - .env
+    depends_on:
+      - api
+    profiles:
+      - tunnel
 
 volumes:
   postgres_data:

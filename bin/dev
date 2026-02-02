@@ -1,7 +1,67 @@
 #!/bin/bash
 
-# Start PostgreSQL
-docker compose up -d
+set -e
 
-# Start Next.js dev server
-npm run dev -- -p 3010
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Get the root directory
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+# Check for --tunnel flag
+TUNNEL=false
+for arg in "$@"; do
+    if [ "$arg" = "--tunnel" ]; then
+        TUNNEL=true
+    fi
+done
+
+echo -e "${BLUE}Starting Tax Intake Agent development environment...${NC}\n"
+
+if [ "$TUNNEL" = true ]; then
+    echo -e "${CYAN}ngrok tunnel enabled${NC}"
+    PROFILES="--profile tunnel"
+else
+    echo -e "${YELLOW}Tunnel disabled (use --tunnel to enable for webhooks)${NC}"
+    PROFILES=""
+fi
+
+echo ""
+
+# Build and start all services
+docker compose $PROFILES up --build -d
+
+# Wait for services to be ready
+echo -e "\n${YELLOW}Waiting for services to start...${NC}"
+sleep 5
+
+# Show service URLs
+echo -e "\n${GREEN}Development servers running:${NC}"
+echo -e "  Web:        ${BLUE}http://localhost:3010${NC}"
+echo -e "  API:        ${BLUE}http://localhost:3009${NC}"
+echo -e "  PostgreSQL: ${BLUE}localhost:5432${NC}"
+
+# If tunnel is running, get the public URL from ngrok API
+if [ "$TUNNEL" = true ]; then
+    echo -e "\n${CYAN}Fetching ngrok tunnel URL...${NC}"
+    sleep 3
+    TUNNEL_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | grep -o '"public_url":"https://[^"]*' | cut -d'"' -f4 | head -1)
+    if [ -n "$TUNNEL_URL" ]; then
+        echo -e "  Tunnel:     ${CYAN}${TUNNEL_URL}${NC}"
+        echo -e "  ngrok UI:   ${BLUE}http://localhost:4040${NC}"
+        echo -e "\n${GREEN}Typeform webhook URL:${NC}"
+        echo -e "  ${CYAN}${TUNNEL_URL}/api/webhooks/typeform${NC}"
+    else
+        echo -e "  ${YELLOW}Tunnel URL not available yet. Check: http://localhost:4040${NC}"
+    fi
+fi
+
+echo -e "\n${YELLOW}Tailing logs (Ctrl+C to stop)...${NC}\n"
+
+# Follow logs
+docker compose $PROFILES logs -f
