@@ -12,6 +12,9 @@ const processedEvents = new Set<string>()
 
 // POST /api/webhooks/typeform - Typeform webhook
 app.post('/typeform', async (c) => {
+  // Debug: log all headers
+  console.log('[WEBHOOK] Headers:', Object.fromEntries(c.req.raw.headers.entries()))
+
   const rawBody = await c.req.text()
   const signature = c.req.header('typeform-signature')
 
@@ -72,17 +75,30 @@ async function processIntake(engagementId: string, formResponse: unknown) {
 }
 
 function verifySignature(payload: string, signature: string | null | undefined): boolean {
-  if (!signature) return false
+  if (!signature) {
+    console.log('[WEBHOOK] No signature header provided')
+    return false
+  }
   const secret = process.env.TYPEFORM_WEBHOOK_SECRET
-  if (!secret) return false
+  if (!secret) {
+    console.log('[WEBHOOK] TYPEFORM_WEBHOOK_SECRET not set')
+    return false
+  }
 
   const hash = crypto.createHmac('sha256', secret).update(payload).digest('base64')
+  const expected = `sha256=${hash}`
+
+  console.log('[WEBHOOK] Received signature:', signature)
+  console.log('[WEBHOOK] Expected signature:', expected)
+  console.log('[WEBHOOK] Secret length:', secret.length)
+
   try {
     return crypto.timingSafeEqual(
       Buffer.from(signature),
-      Buffer.from(`sha256=${hash}`)
+      Buffer.from(expected)
     )
-  } catch {
+  } catch (e) {
+    console.log('[WEBHOOK] timingSafeEqual error:', e)
     return false
   }
 }

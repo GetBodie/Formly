@@ -137,7 +137,7 @@ async function createForm() {
   console.log('\nAdd this to your .env:')
   console.log(`TYPEFORM_FORM_ID=${form.id}`)
   console.log('\nWebhook URL to configure in Typeform:')
-  console.log(`${process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.vercel.app'}/api/webhooks/typeform`)
+  console.log(`${process.env.API_URL || 'https://your-api.onrender.com'}/webhooks/typeform`)
 }
 
 createForm().catch(console.error)

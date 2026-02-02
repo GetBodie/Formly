@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tax Intake Agent
 
-## Getting Started
+Automated document collection system for tax accountants. Collects client tax documents, classifies them using AI, and tracks completion status.
 
-First, run the development server:
+## Architecture
+
+- **API** (`apps/api`) - Hono backend with Prisma ORM
+- **Web** (`apps/web`) - React SPA with Vite
+- **Database** - PostgreSQL
+
+### Data Flow
+
+1. **Engagement Creation** - Accountant creates engagement with client info and storage folder URL
+2. **Intake Processing** - Typeform webhook receives client responses, LLM generates document checklist
+3. **Document Collection** - Cron polls storage (SharePoint, Google Drive, or Dropbox), downloads and classifies documents
+4. **Reconciliation** - Matches documents to checklist items, calculates completion percentage
+5. **Brief Generation** - When complete, generates prep brief for accountant
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Start all services (API + Web + PostgreSQL)
+./bin/dev
+
+# Start with Cloudflare tunnel for webhooks
+./bin/dev --tunnel
+
+# Stop services
+docker compose down
+
+# View logs
+docker compose logs -f api
+docker compose logs -f web
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Services
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Service    | URL                          |
+|------------|------------------------------|
+| API        | http://localhost:3009        |
+| Web        | http://localhost:3010        |
+| PostgreSQL | localhost:5432               |
+| Tunnel     | https://xxx.ngrok-free.app   |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Database
 
-## Learn More
+```bash
+docker compose exec api npx prisma studio      # Visual database browser
+docker compose exec api npx prisma db push     # Push schema changes
+docker compose exec api npx prisma generate    # Regenerate client
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Copy `.env.example` to `.env` and configure:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Required
+DATABASE_URL=postgresql://...
+OPENAI_API_KEY=sk-...
+MISTRAL_API_KEY=...
+TYPEFORM_WEBHOOK_SECRET=...
+CRON_SECRET=...
+RESEND_API_KEY=re_...
+EMAIL_FROM=noreply@yourdomain.com
+ACCOUNTANT_EMAIL=accountant@example.com
 
-## Deploy on Vercel
+# Storage (configure at least one)
+# SharePoint
+AZURE_TENANT_ID=...
+AZURE_CLIENT_ID=...
+AZURE_CLIENT_SECRET=...
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Google Drive
+GOOGLE_SERVICE_ACCOUNT_EMAIL=...
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=...
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Dropbox
+DROPBOX_APP_KEY=...
+DROPBOX_APP_SECRET=...
+DROPBOX_ACCESS_TOKEN=...
+```
+
+## Deployment
+
+Deploys to Render on push to main:
+
+```bash
+git push origin main
+```
+
+See `render.yaml` for service configuration.

@@ -29,7 +29,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tax_agent
       PORT: "3009"
       FRONTEND_URL: http://localhost:3010
-      ENABLE_SCHEDULER: "false"
+      ENABLE_SCHEDULER: "true"
     volumes:
       - ./apps/api/src:/app/src
       - ./apps/api/prisma:/app/prisma
