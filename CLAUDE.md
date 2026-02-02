@@ -285,6 +285,17 @@ curl -X PUT "https://api.typeform.com/forms/{form_id}/webhooks/{tag}" \
   -d '{"url": "https://yourapi.com/webhooks/typeform", "enabled": true}'
 ```
 
+**Debugging Missing Signature Header** (added 2026-02-02): If `typeform-signature` header is missing entirely (not just invalid), the webhook secret isn't configured in Typeform:
+1. Go to form → **Connect** → **Webhooks**
+2. Click on your webhook endpoint
+3. Find the **Secret** field and set a value
+4. Copy that exact value to `.env` as `TYPEFORM_WEBHOOK_SECRET`
+
+Debug with header logging:
+```typescript
+console.log('[WEBHOOK] Headers:', Object.fromEntries(c.req.raw.headers.entries()))
+```
+
 ### Parseable Issue String Format (added 2026-01-31)
 
 **Structured Data in Strings**: Store structured data as parseable strings to avoid schema bloat while keeping data queryable:
