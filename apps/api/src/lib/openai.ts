@@ -74,27 +74,35 @@ export async function classifyDocument(
 
 3. **taxYear**: The tax year shown on the document (e.g., 2024, 2025). Return null if not visible.
 
-4. **issues**: Array of problems found. Check for:
-   ${expectedTaxYear ? `- Wrong tax year: If document year doesn't match ${expectedTaxYear}, flag it` : ''}
-   - Missing critical fields:
-     * W-2: Must have employer name, wages/compensation, SSN (can be masked)
-     * 1099 forms: Must have payer name, recipient info, and relevant amounts
-     * K-1: Must have partnership/S-corp info and partner's share amounts
-   - Quality issues: Illegible text, cut-off edges, blurry scan, partial document
-   - Incomplete document: Missing pages, form appears truncated
+4. **issues**: Array of problems found. Be SPECIFIC in descriptions - include actual values found.
 
-Format issues as: "[SEVERITY:type:expected:detected] Description"
-- SEVERITY: ERROR (blocks processing) or WARNING (needs review)
+Check for:
+${expectedTaxYear ? `- Wrong tax year: If document year doesn't match ${expectedTaxYear}, flag with actual year found` : ''}
+- Missing critical fields (be specific about which field):
+  * W-2: employer name/EIN, wages (Box 1), federal tax withheld (Box 2), SSN
+  * 1099-NEC: payer name/TIN, nonemployee compensation (Box 1)
+  * 1099-INT: payer name, interest income (Box 1)
+  * 1099-MISC: payer name, relevant income boxes
+  * K-1: partnership/S-corp name/EIN, partner's share amounts
+- Quality issues: specify what's illegible or cut off
+- Incomplete: note which pages appear missing
+
+Format: "[SEVERITY:type:expected:detected] Specific description"
+- SEVERITY: ERROR (blocks tax prep) or WARNING (needs review)
 - type: wrong_year, missing_field, illegible, incomplete, low_confidence, other
-- expected/detected: relevant values or empty if not applicable
+- expected/detected: actual values when available
 
-Examples:
-- "[ERROR:wrong_year:2025:2024] Document is from 2024, expected 2025"
-- "[WARNING:missing_field:employer_ein:] Employer EIN not visible"
-- "[WARNING:illegible::] Parts of the document are blurry"
-- "[ERROR:incomplete::] Document appears cut off"
+GOOD examples (specific):
+- "[ERROR:wrong_year:${expectedTaxYear || '2025'}:2024] Document shows tax year 2024, but we need ${expectedTaxYear || '2025'}"
+- "[WARNING:missing_field:box_1_wages:] Box 1 (Wages) is not visible or illegible"
+- "[ERROR:incomplete::] Only page 1 visible, W-2 Copy B typically has 2 pages"
+- "[WARNING:illegible:employer_ein:] Employer EIN in Box b is too blurry to read"
 
-Be thorough but practical. Don't flag minor issues that won't affect tax preparation.`
+BAD examples (vague - avoid these):
+- "[WARNING:other::] Some fields missing"
+- "[WARNING:illegible::] Document quality issues"
+
+Only flag issues that actually affect tax preparation. Don't flag cosmetic issues.`
 
   const response = await openai.chat.completions.parse({
     model: MODEL,
@@ -220,11 +228,17 @@ export async function generateFriendlyIssues(
       messages: [
         {
           role: 'system',
-          content: `You generate clear, helpful issue messages for a tax document review interface.
+          content: `You generate clear, actionable issue messages for a tax document review interface used by accountants.
+
 For each issue, provide:
-- friendlyMessage: A clear 1-sentence explanation of the problem (no jargon)
-- suggestedAction: A specific action the accountant should take (start with a verb)
-- severity: "error" for blocking issues, "warning" for advisory`
+- friendlyMessage: A clear, specific 1-sentence explanation. Include relevant details like years, amounts, or field names when available. Avoid vague language like "some issues" or "problems detected".
+- suggestedAction: A concrete next step starting with an action verb. Be specific about what to request or verify. Examples:
+  * "Send client a follow-up email requesting their 2024 W-2"
+  * "Verify the employer EIN by checking against the original document"
+  * "Request a clearer photo of page 2 showing Box 1 wages"
+- severity: "error" for issues that block tax preparation (wrong year, missing critical data), "warning" for issues that need review but don't block (low confidence, minor missing fields)
+
+Keep messages concise but informative. The accountant should understand exactly what's wrong and what to do.`
         },
         {
           role: 'user',
