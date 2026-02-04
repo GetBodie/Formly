@@ -97,14 +97,14 @@ export default function EngagementDetail() {
     }
   }
 
-  async function handleSendFollowUp(docId: string) {
+  async function handleSendFollowUp(docId: string, email: string) {
     if (!id || !engagement) return
 
     setActionInProgress('email')
     try {
-      await sendDocumentFollowUp(id, docId)
+      const result = await sendDocumentFollowUp(id, docId, email)
       setError(null) // Clear any previous errors
-      alert('Follow-up email sent successfully')
+      alert(result.message || 'Follow-up email sent successfully')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send email')
     } finally {
@@ -281,6 +281,7 @@ export default function EngagementDetail() {
               <DocumentDetail
                 doc={documents.find(d => d.id === selectedDocId)!}
                 engagementId={id!}
+                clientEmail={engagement.clientEmail}
                 onApprove={handleApproveDocument}
                 onReclassify={handleReclassifyDocument}
                 onSendEmail={handleSendFollowUp}
@@ -370,15 +371,17 @@ export default function EngagementDetail() {
 interface DocumentDetailProps {
   doc: Document
   engagementId: string
+  clientEmail: string
   onApprove: (docId: string) => Promise<void>
   onReclassify: (docId: string, newType: string) => Promise<void>
-  onSendEmail: (docId: string) => Promise<void>
+  onSendEmail: (docId: string, email: string) => Promise<void>
   actionInProgress: string | null
 }
 
 function DocumentDetail({
   doc,
   engagementId,
+  clientEmail,
   onApprove,
   onReclassify,
   onSendEmail,
@@ -387,6 +390,8 @@ function DocumentDetail({
   const [selectedType, setSelectedType] = useState('')
   const [friendlyIssues, setFriendlyIssues] = useState<FriendlyIssue[]>([])
   const [loadingIssues, setLoadingIssues] = useState(false)
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailInput, setEmailInput] = useState(clientEmail)
   const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
 
   // Fetch friendly issues when document changes
@@ -484,11 +489,14 @@ function DocumentDetail({
         {hasUnresolvedIssues && (
           <div className="pt-4 border-t space-y-2">
             <button
-              onClick={() => onSendEmail(doc.id)}
+              onClick={() => {
+                setEmailInput(clientEmail)
+                setShowEmailModal(true)
+              }}
               disabled={actionInProgress !== null}
               className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {actionInProgress === 'email' ? 'Sending...' : '📧 Send Follow-up Email'}
+              📧 Send Follow-up Email
             </button>
 
             <button
@@ -534,6 +542,45 @@ function DocumentDetail({
           </div>
         )}
       </div>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Send Follow-up Email</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Recipient Email
+              </label>
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="client@example.com"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onSendEmail(doc.id, emailInput)
+                  setShowEmailModal(false)
+                }}
+                disabled={!emailInput || actionInProgress === 'email'}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionInProgress === 'email' ? 'Sending...' : 'Send Email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -16,7 +16,6 @@ export default function NewEngagement() {
     const data = {
       clientName: formData.get('clientName') as string,
       clientEmail: formData.get('clientEmail') as string,
-      taxYear: parseInt(formData.get('taxYear') as string, 10),
       storageFolderUrl: formData.get('storageFolderUrl') as string,
     }
 
@@ -68,22 +67,6 @@ export default function NewEngagement() {
                 required
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="john@example.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="taxYear" className="block text-sm font-medium text-gray-700 mb-2">
-                Tax Year
-              </label>
-              <input
-                type="number"
-                id="taxYear"
-                name="taxYear"
-                required
-                defaultValue={2025}
-                min={2020}
-                max={2030}
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 

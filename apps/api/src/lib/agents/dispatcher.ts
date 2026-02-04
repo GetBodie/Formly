@@ -8,7 +8,7 @@ import type { ChecklistItem } from '../../types.js'
 export type AgentEvent =
   | { type: 'engagement_created'; engagementId: string }
   | { type: 'intake_complete'; engagementId: string }
-  | { type: 'document_uploaded'; engagementId: string; documentId: string; sharepointItemId: string; fileName: string }
+  | { type: 'document_uploaded'; engagementId: string; documentId: string; storageItemId: string; fileName: string }
   | { type: 'document_assessed'; engagementId: string; documentId: string; documentType: string; hasIssues: boolean }
   | { type: 'stale_engagement'; engagementId: string }
   | { type: 'check_completion'; engagementId: string }
@@ -34,7 +34,7 @@ export async function dispatch(event: AgentEvent): Promise<void> {
         trigger: 'document_uploaded',
         engagementId: event.engagementId,
         documentId: event.documentId,
-        sharepointItemId: event.sharepointItemId,
+        storageItemId: event.storageItemId,
         fileName: event.fileName
       })
 
@@ -105,7 +105,6 @@ async function sendWelcomeEmail(engagementId: string): Promise<void> {
     taxYear: engagement.taxYear,
     typeformFormId: engagement.typeformFormId,
     storageFolderUrl: engagement.storageFolderUrl,
-    sharepointFolderUrl: engagement.storageFolderUrl,
   }
 
   try {
@@ -135,7 +134,6 @@ async function sendUploadInstructions(engagementId: string): Promise<void> {
     taxYear: engagement.taxYear,
     typeformFormId: engagement.typeformFormId,
     storageFolderUrl: engagement.storageFolderUrl,
-    sharepointFolderUrl: engagement.storageFolderUrl,
     checklist: engagement.checklist as ChecklistItem[] | null,
   }
 
@@ -166,7 +164,6 @@ async function sendCompletionEmails(engagementId: string): Promise<void> {
     taxYear: engagement.taxYear,
     typeformFormId: engagement.typeformFormId,
     storageFolderUrl: engagement.storageFolderUrl,
-    sharepointFolderUrl: engagement.storageFolderUrl,
   }
 
   try {

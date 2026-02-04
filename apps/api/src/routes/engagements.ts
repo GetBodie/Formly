@@ -13,10 +13,7 @@ const app = new Hono()
 const CreateEngagementSchema = z.object({
   clientName: z.string().min(1),
   clientEmail: z.string().email(),
-  taxYear: z.number().int().min(2020).max(2030),
   storageFolderUrl: z.string().url(),
-  // Legacy field - accept but prefer storageFolderUrl
-  sharepointFolderUrl: z.string().url().optional(),
 })
 
 // GET /api/engagements - List all engagements
@@ -38,14 +35,13 @@ app.post('/', zValidator('json', CreateEngagementSchema), async (c) => {
       return c.json({ error: 'TYPEFORM_FORM_ID environment variable not set' }, 500)
     }
 
-    // Use storageFolderUrl, fallback to legacy sharepointFolderUrl
-    const folderUrl = body.storageFolderUrl || body.sharepointFolderUrl!
+    const folderUrl = body.storageFolderUrl
 
     // Detect provider from URL
     const provider = detectProvider(folderUrl)
     if (!provider) {
       return c.json(
-        { error: 'Unsupported storage URL. Use SharePoint, Google Drive, or Dropbox.' },
+        { error: 'Unsupported storage URL. Please provide a Dropbox folder URL.' },
         400
       )
     }
@@ -70,17 +66,12 @@ app.post('/', zValidator('json', CreateEngagementSchema), async (c) => {
       data: {
         clientName: body.clientName,
         clientEmail: body.clientEmail,
-        taxYear: body.taxYear,
+        taxYear: new Date().getFullYear(),
         typeformFormId,
-        // New storage fields
         storageProvider: provider,
         storageFolderUrl: folderUrl,
         storageFolderId,
         storageDriveId,
-        // Legacy fields (for backwards compatibility)
-        sharepointFolderUrl: provider === 'sharepoint' ? folderUrl : null,
-        sharepointDriveId: provider === 'sharepoint' ? storageDriveId : null,
-        sharepointFolderId: provider === 'sharepoint' ? storageFolderId : null,
       },
     })
 
@@ -116,7 +107,7 @@ const UpdateEngagementSchema = z.object({
   storageFolderId: z.string().optional(),
   storageDriveId: z.string().optional(),
   storageFolderUrl: z.string().url().optional(),
-  storageProvider: z.enum(['sharepoint', 'gdrive', 'dropbox']).optional(),
+  storageProvider: z.enum(['dropbox', 'google-drive']).optional(),
 })
 
 // PATCH /api/engagements/:id - Update engagement
@@ -134,24 +125,14 @@ app.patch('/:id', zValidator('json', UpdateEngagementSchema), async (c) => {
 
   if (body.storageFolderId !== undefined) {
     updateData.storageFolderId = body.storageFolderId
-    // Keep legacy field in sync for backwards compatibility
-    if (engagement.storageProvider === 'sharepoint') {
-      updateData.sharepointFolderId = body.storageFolderId
-    }
   }
 
   if (body.storageDriveId !== undefined) {
     updateData.storageDriveId = body.storageDriveId
-    if (engagement.storageProvider === 'sharepoint') {
-      updateData.sharepointDriveId = body.storageDriveId
-    }
   }
 
   if (body.storageFolderUrl !== undefined) {
     updateData.storageFolderUrl = body.storageFolderUrl
-    if (engagement.storageProvider === 'sharepoint') {
-      updateData.sharepointFolderUrl = body.storageFolderUrl
-    }
   }
 
   if (body.storageProvider !== undefined) {
@@ -232,7 +213,7 @@ app.post('/:id/retry-documents', async (c) => {
       type: 'document_uploaded',
       engagementId: engagement.id,
       documentId: doc.id,
-      sharepointItemId: doc.storageItemId || doc.sharepointItemId || '',
+      storageItemId: doc.storageItemId,
       fileName: doc.fileName
     }))
   }

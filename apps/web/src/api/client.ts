@@ -39,7 +39,6 @@ interface Document {
   id: string
   fileName: string
   storageItemId: string
-  sharepointItemId?: string
   documentType: string
   confidence: number
   taxYear: number | null
@@ -65,7 +64,6 @@ interface Reconciliation {
 interface CreateEngagementData {
   clientName: string
   clientEmail: string
-  taxYear: number
   storageFolderUrl: string
 }
 
@@ -130,10 +128,12 @@ export async function reclassifyDocument(
 
 export async function sendDocumentFollowUp(
   engagementId: string,
-  docId: string
+  docId: string,
+  email?: string
 ): Promise<{ success: boolean; message: string }> {
   return fetchApi(`/api/engagements/${engagementId}/documents/${docId}/send-followup`, {
     method: 'POST',
+    body: JSON.stringify({ email }),
   })
 }
 

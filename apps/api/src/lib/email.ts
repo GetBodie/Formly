@@ -1,7 +1,17 @@
 import { Resend } from 'resend'
 import type { ChecklistItem } from '../types.js'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization to ensure env vars are loaded
+let resendClient: Resend | null = null
+function getResendClient(): Resend {
+  if (!resendClient) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('[EMAIL] RESEND_API_KEY is not set')
+    }
+    resendClient = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resendClient
+}
 
 interface Engagement {
   id: string
@@ -10,7 +20,6 @@ interface Engagement {
   taxYear: number
   typeformFormId: string
   storageFolderUrl: string
-  sharepointFolderUrl: string // Legacy alias for storageFolderUrl
   checklist?: ChecklistItem[] | null
 }
 
@@ -54,7 +63,7 @@ export const emailTemplates = {
         <p style="margin: 24px 0;">
           <a href="${engagement.storageFolderUrl}"
              style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-            Open SharePoint Folder
+            Open Dropbox Folder
           </a>
         </p>
         <p style="color: #6b7280; font-size: 14px;">
@@ -160,18 +169,31 @@ export async function sendEmail(
   const maxRetries = options?.retries ?? 3
   let lastError: Error | null = null
 
+  // Validate environment variables
+  if (!process.env.EMAIL_FROM) {
+    throw new Error('[EMAIL] EMAIL_FROM is not set')
+  }
+
+  const resend = getResendClient()
+  console.log(`[EMAIL] Sending email to ${to}, subject: "${template.subject}", from: ${process.env.EMAIL_FROM}`)
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM!,
+      from: process.env.EMAIL_FROM,
       to,
       subject: template.subject,
       html: template.html
     })
 
     if (!error && data) {
+      console.log(`[EMAIL] Sent successfully, id: ${data.id}`)
       return { id: data.id }
     }
 
+    console.error(`[EMAIL] Attempt ${attempt}/${maxRetries} failed:`, {
+      name: error?.name,
+      message: error?.message,
+    })
     lastError = new Error(error?.message ?? 'Unknown email error')
 
     // Don't retry validation errors

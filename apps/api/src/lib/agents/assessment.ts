@@ -17,7 +17,7 @@ export const assessmentServer = createSdkMcpServer({
       {
         engagementId: z.string().describe('The engagement ID'),
         documentId: z.string().describe('The document ID'),
-        sharepointItemId: z.string().describe('The SharePoint item ID'),
+        storageItemId: z.string().describe('The storage item ID'),
         fileName: z.string().describe('The file name')
       },
       async (args) => {
@@ -33,9 +33,9 @@ export const assessmentServer = createSdkMcpServer({
         }
 
         // Get storage provider and required IDs
-        const provider = (engagement.storageProvider || 'sharepoint') as StorageProvider
-        const folderId = engagement.storageFolderId || engagement.sharepointFolderId
-        const driveId = engagement.storageDriveId || engagement.sharepointDriveId
+        const provider = (engagement.storageProvider || 'dropbox') as StorageProvider
+        const folderId = engagement.storageFolderId
+        const driveId = engagement.storageDriveId
         const folderUrl = engagement.storageFolderUrl as string | null
 
         // For Dropbox shared folders, we can access files using the URL even without folderId
@@ -56,7 +56,7 @@ export const assessmentServer = createSdkMcpServer({
           // Download file using the appropriate storage client
           const client = getStorageClient(provider)
           const { buffer, mimeType, fileName, size } = await client.downloadFile(
-            args.sharepointItemId, // This is actually the storageItemId
+            args.storageItemId,
             { driveId: driveId || undefined, sharedLinkUrl: folderUrl || undefined }
           )
 
@@ -115,14 +115,21 @@ export const assessmentServer = createSdkMcpServer({
 
     tool(
       'classify_document',
-      'Identify the document type (W-2, 1099, etc.)',
+      'Classify and validate the document - identifies type, checks for issues like wrong year, missing fields, quality problems',
       {
+        engagementId: z.string().describe('The engagement ID (to get expected tax year)'),
         content: z.string().describe('The extracted text content'),
         fileName: z.string().describe('The file name')
       },
       async (args) => {
         try {
-          const classification = await classifyWithOpenAI(args.content, args.fileName)
+          // Get expected tax year from engagement
+          const engagement = await prisma.engagement.findUnique({
+            where: { id: args.engagementId }
+          })
+          const expectedTaxYear = engagement?.taxYear
+
+          const classification = await classifyWithOpenAI(args.content, args.fileName, expectedTaxYear)
 
           return {
             content: [{
@@ -140,58 +147,6 @@ export const assessmentServer = createSdkMcpServer({
             content: [{ type: 'text', text: `Error classifying document: ${error instanceof Error ? error.message : 'Unknown error'}` }],
             isError: true
           }
-        }
-      }
-    ),
-
-    tool(
-      'validate_document',
-      'Check document for issues like wrong year, missing fields, etc.',
-      {
-        documentType: z.string().describe('The document type'),
-        content: z.string().describe('The extracted text content'),
-        expectedTaxYear: z.number().describe('The expected tax year'),
-        detectedTaxYear: z.number().nullable().describe('The detected tax year from classification')
-      },
-      async (args) => {
-        const issues: string[] = []
-
-        // Check tax year
-        if (args.detectedTaxYear && args.detectedTaxYear !== args.expectedTaxYear) {
-          issues.push(`Wrong tax year: document is from ${args.detectedTaxYear}, expected ${args.expectedTaxYear}`)
-        }
-
-        // Check for common issues based on document type
-        const contentLower = args.content.toLowerCase()
-
-        if (args.documentType === 'W-2') {
-          if (!contentLower.includes('wages') && !contentLower.includes('compensation')) {
-            issues.push('W-2 appears to be missing wage information')
-          }
-          if (!contentLower.includes('social security') && !contentLower.includes('ssn') && !contentLower.includes('xxx-xx')) {
-            issues.push('W-2 appears to be missing SSN')
-          }
-        }
-
-        if (args.documentType.includes('1099')) {
-          if (!contentLower.includes('payer') && !contentLower.includes('recipient')) {
-            issues.push('1099 appears to be missing payer/recipient information')
-          }
-        }
-
-        // Check if document is too short (might be incomplete)
-        if (args.content.length < 200) {
-          issues.push('Document appears to be incomplete or partially scanned')
-        }
-
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              isValid: issues.length === 0,
-              issues
-            }, null, 2)
-          }]
         }
       }
     ),
@@ -422,7 +377,7 @@ export async function runAssessmentAgent(context: {
   trigger: AssessmentTrigger
   engagementId: string
   documentId: string
-  sharepointItemId: string
+  storageItemId: string
   fileName: string
 }): Promise<{ hasIssues: boolean; documentType: string }> {
   const engagement = await prisma.engagement.findUnique({
@@ -445,7 +400,7 @@ export async function runAssessmentAgent(context: {
     })
   }
 
-  const systemPrompt = `You are a Document Assessment Agent for a tax document collection system. Your role is to analyze uploaded documents, classify them, validate their content, and flag any issues.
+  const systemPrompt = `You are a Document Assessment Agent for a tax document collection system. Your role is to analyze uploaded documents and classify them.
 
 Current trigger: ${context.trigger}
 Engagement ID: ${context.engagementId}
@@ -454,16 +409,19 @@ File Name: ${context.fileName}
 Expected Tax Year: ${engagement.taxYear}
 
 Your workflow:
-1. Extract the document content using OCR
-2. Classify the document type (W-2, 1099-NEC, 1099-MISC, K-1, RECEIPT, STATEMENT, OTHER)
-3. Validate the document (check tax year, completeness)
-4. Extract key fields if applicable
-5. Update the document record with your findings
-6. Flag any issues found
+1. Extract the document content using OCR (extract_document)
+2. Classify the document (classify_document) - this also validates and detects issues
+3. Update the document record with the classification results (update_document)
 
-Be thorough but efficient. If confidence is below 0.85, flag for manual review.`
+The classify_document tool handles all validation including:
+- Document type detection (W-2, 1099-NEC, 1099-MISC, K-1, RECEIPT, STATEMENT, OTHER)
+- Tax year validation against expected year
+- Missing field detection
+- Quality issues (illegible, incomplete, etc.)
 
-  const prompt = `Process document "${context.fileName}" (ID: ${context.documentId}, SharePoint Item: ${context.sharepointItemId}). Extract, classify, validate, and update the document record.`
+Be efficient - extract, classify, update. Don't use flag_issue separately unless you find additional issues not caught by classification.`
+
+  const prompt = `Process document "${context.fileName}" (ID: ${context.documentId}, Storage Item: ${context.storageItemId}). Extract, classify, and update the document record.`
 
   let documentType = 'UNKNOWN'
   let hasIssues = false
@@ -480,11 +438,8 @@ Be thorough but efficient. If confidence is below 0.85, flag for manual review.`
         allowedTools: [
           'mcp__assessment__extract_document',
           'mcp__assessment__classify_document',
-          'mcp__assessment__validate_document',
-          'mcp__assessment__extract_fields',
-          'mcp__assessment__cross_validate',
-          'mcp__assessment__flag_issue',
-          'mcp__assessment__update_document'
+          'mcp__assessment__update_document',
+          'mcp__assessment__flag_issue'
         ]
       }
     })

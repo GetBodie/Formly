@@ -95,7 +95,7 @@ async function retryStuckDocuments(engagements: { id: string; documents: unknown
           type: 'document_uploaded',
           engagementId: engagement.id,
           documentId: doc.id,
-          sharepointItemId: doc.storageItemId || doc.sharepointItemId || '',
+          storageItemId: doc.storageItemId,
           fileName: doc.fileName
         }))
 
@@ -121,26 +121,21 @@ async function pollEngagement(engagement: {
   storageFolderUrl: string | null
   storageDriveId: string | null
   storagePageToken: string | null
-  // Legacy fields
-  sharepointDriveId: string | null
-  sharepointFolderId: string | null
-  deltaLink: string | null
   checklist: unknown
   documents: unknown
 }) {
-  // Support both new and legacy field names
-  const provider = (engagement.storageProvider || 'sharepoint') as StorageProvider
-  const folderId = engagement.storageFolderId || engagement.sharepointFolderId
-  const driveId = engagement.storageDriveId || engagement.sharepointDriveId
-  const pageToken = engagement.storagePageToken || engagement.deltaLink
+  const provider = (engagement.storageProvider || 'dropbox') as StorageProvider
+  const folderId = engagement.storageFolderId
+  const driveId = engagement.storageDriveId
+  const pageToken = engagement.storagePageToken
   const folderUrl = engagement.storageFolderUrl
 
   // For Dropbox shared folders, we can sync using the URL even without folderId
   if (provider !== 'dropbox' && !folderId) return
   if (provider === 'dropbox' && !folderId && !folderUrl) return
 
-  // SharePoint requires driveId
-  if (provider === 'sharepoint' && !driveId) return
+  // Google Drive may require driveId for shared drives
+  if (provider === 'google-drive' && !driveId && !folderId) return
 
   try {
     const client = getStorageClient(provider)
@@ -151,7 +146,7 @@ async function pollEngagement(engagement: {
     )
 
     const existingDocs = (engagement.documents as Document[]) || []
-    const existingIds = new Set(existingDocs.map(d => d.storageItemId || d.sharepointItemId))
+    const existingIds = new Set(existingDocs.map(d => d.storageItemId))
 
     // Process new files
     const newFiles = files.filter(file => !file.deleted && !existingIds.has(file.id))
@@ -171,7 +166,6 @@ async function pollEngagement(engagement: {
         id: crypto.randomUUID(),
         fileName: file.name,
         storageItemId: file.id,
-        sharepointItemId: file.id, // Keep for backwards compatibility
         documentType: 'PENDING',
         confidence: 0,
         taxYear: null,
@@ -190,7 +184,6 @@ async function pollEngagement(engagement: {
       where: { id: engagement.id },
       data: {
         storagePageToken: nextPageToken,
-        deltaLink: nextPageToken, // Keep legacy field in sync
         documents: existingDocs,
         status: 'COLLECTING'
       }
@@ -198,14 +191,14 @@ async function pollEngagement(engagement: {
 
     // Dispatch document_uploaded events for each new file
     for (const file of newFiles) {
-      const doc = existingDocs.find(d => d.storageItemId === file.id || d.sharepointItemId === file.id)
+      const doc = existingDocs.find(d => d.storageItemId === file.id)
       if (!doc) continue
 
       await dispatch({
         type: 'document_uploaded',
         engagementId: engagement.id,
         documentId: doc.id,
-        sharepointItemId: file.id, // Keep event shape for backwards compatibility
+        storageItemId: file.id,
         fileName: file.name
       })
     }

@@ -30,7 +30,11 @@ export async function generateChecklist(intakeData: unknown, taxYear: number): P
   return parsed.items
 }
 
-export async function classifyDocument(content: string, fileName: string): Promise<{
+export async function classifyDocument(
+  content: string,
+  fileName: string,
+  expectedTaxYear?: number
+): Promise<{
   documentType: string
   confidence: number
   taxYear: number | null
@@ -43,13 +47,40 @@ export async function classifyDocument(content: string, fileName: string): Promi
     issues: z.array(z.string()),
   })
 
+  const systemPrompt = `You are a tax document classifier and validator. Analyze the document and return:
+
+1. **documentType**: One of: W-2, 1099-NEC, 1099-MISC, 1099-INT, 1099-DIV, 1099-B, 1099-R, K-1, RECEIPT, STATEMENT, OTHER
+
+2. **confidence**: 0-1 score. Use < 0.7 if document is unclear, partially visible, or you're uncertain.
+
+3. **taxYear**: The tax year shown on the document (e.g., 2024, 2025). Return null if not visible.
+
+4. **issues**: Array of problems found. Check for:
+   ${expectedTaxYear ? `- Wrong tax year: If document year doesn't match ${expectedTaxYear}, flag it` : ''}
+   - Missing critical fields:
+     * W-2: Must have employer name, wages/compensation, SSN (can be masked)
+     * 1099 forms: Must have payer name, recipient info, and relevant amounts
+     * K-1: Must have partnership/S-corp info and partner's share amounts
+   - Quality issues: Illegible text, cut-off edges, blurry scan, partial document
+   - Incomplete document: Missing pages, form appears truncated
+
+Format issues as: "[SEVERITY:type:expected:detected] Description"
+- SEVERITY: ERROR (blocks processing) or WARNING (needs review)
+- type: wrong_year, missing_field, illegible, incomplete, low_confidence, other
+- expected/detected: relevant values or empty if not applicable
+
+Examples:
+- "[ERROR:wrong_year:2025:2024] Document is from 2024, expected 2025"
+- "[WARNING:missing_field:employer_ein:] Employer EIN not visible"
+- "[WARNING:illegible::] Parts of the document are blurry"
+- "[ERROR:incomplete::] Document appears cut off"
+
+Be thorough but practical. Don't flag minor issues that won't affect tax preparation.`
+
   const response = await openai.chat.completions.parse({
     model: MODEL,
     messages: [
-      {
-        role: 'system',
-        content: 'Classify this tax document. Identify type (W-2, 1099-NEC, 1099-MISC, K-1, RECEIPT, STATEMENT, OTHER), confidence (0-1), tax year, and any issues (wrong year, missing info, etc).',
-      },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: `File: ${fileName}\n\nContent:\n${content.slice(0, 10000)}` },
     ],
     response_format: zodResponseFormat(ClassificationSchema, 'classification'),

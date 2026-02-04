@@ -87,10 +87,16 @@ app.post(
 )
 
 // POST /api/engagements/:engagementId/documents/:docId/send-followup
+const SendFollowUpSchema = z.object({
+  email: z.string().email().optional()
+})
+
 app.post(
   '/:engagementId/documents/:docId/send-followup',
+  zValidator('json', SendFollowUpSchema),
   async (c) => {
     const { engagementId, docId } = c.req.param()
+    const body = c.req.valid('json')
 
     const engagement = await prisma.engagement.findUnique({
       where: { id: engagementId }
@@ -108,6 +114,9 @@ app.post(
     if (doc.issues.length === 0) {
       return c.json({ error: 'Document has no issues to report' }, 400)
     }
+
+    // Use provided email or fall back to client email
+    const recipientEmail = body.email || engagement.clientEmail
 
     // Parse issues for Haiku email generation
     const parsedIssues = doc.issues.map(issueStr => {
@@ -129,7 +138,7 @@ app.post(
         issues: parsedIssues
       })
 
-      const uploadUrl = engagement.storageFolderUrl || engagement.sharepointFolderUrl!
+      const uploadUrl = engagement.storageFolderUrl
 
       // Build HTML email from Haiku-generated content
       const emailHtml = `
@@ -145,10 +154,10 @@ app.post(
       `
 
       await sendEmail(
-        engagement.clientEmail,
+        recipientEmail,
         { subject: emailContent.subject, html: emailHtml }
       )
-      return c.json({ success: true, message: 'Follow-up email sent' })
+      return c.json({ success: true, message: `Follow-up email sent to ${recipientEmail}` })
     } catch (error) {
       console.error('Failed to send follow-up email:', error)
       return c.json(
