@@ -213,8 +213,7 @@ docker compose up --build
 docker compose exec api npx prisma db push
 ```
 
-### Render Deployment (added 2026-01-31)
-
+### Render Deployment
 **render.yaml Configuration**: When deploying a monorepo with separate API and web services:
 ```yaml
 databases:
@@ -244,8 +243,7 @@ services:
 2. CORS allows the frontend origin
 3. API URL environment variable points to the correct service
 
-### Dropbox Integration (added 2026-01-31)
-
+### Dropbox Integration
 **Shared Folders Require Special Handling**: When accessing files in Dropbox shared folders:
 - Use `shared_link` parameter in API calls
 - The folder ID from shared link URL differs from regular folder paths
@@ -257,8 +255,7 @@ services:
 3. OAuth authorization URL: `https://www.dropbox.com/oauth2/authorize?client_id={app_key}&response_type=code&token_access_type=offline`
 4. Exchange code for tokens: POST to `https://api.dropboxapi.com/oauth2/token`
 
-### Document Processing Patterns (added 2026-01-31)
-
+### Document Processing Patterns
 **Three-State Model for Resilient Processing**: To handle container restarts and interrupted processing:
 ```typescript
 // Document states
@@ -285,8 +282,7 @@ const client = getStorageClient(provider) // 'sharepoint' | 'googledrive' | 'dro
 const { buffer, mimeType, fileName } = await client.downloadFile(itemId, driveId)
 ```
 
-### Typeform Webhook (added 2026-01-31)
-
+### Typeform Webhook
 **HMAC Signature Verification**: Typeform uses **base64** encoding (not hex):
 ```typescript
 const hash = crypto.createHmac('sha256', secret).update(payload).digest('base64')
@@ -299,7 +295,7 @@ curl -X PUT "https://api.typeform.com/forms/{form_id}/webhooks/{tag}" \
   -d '{"url": "https://yourapi.com/webhooks/typeform", "enabled": true}'
 ```
 
-**Debugging Missing Signature Header** (added 2026-02-02): If `typeform-signature` header is missing entirely (not just invalid), the webhook secret isn't configured in Typeform:
+**Debugging Missing Signature Header**: If `typeform-signature` header is missing entirely (not just invalid), the webhook secret isn't configured in Typeform:
 1. Go to form → **Connect** → **Webhooks**
 2. Click on your webhook endpoint
 3. Find the **Secret** field and set a value
@@ -310,8 +306,7 @@ Debug with header logging:
 console.log('[WEBHOOK] Headers:', Object.fromEntries(c.req.raw.headers.entries()))
 ```
 
-### Parseable Issue String Format (added 2026-01-31)
-
+### Parseable Issue String Format
 **Structured Data in Strings**: Store structured data as parseable strings to avoid schema bloat while keeping data queryable:
 ```typescript
 // Format: [SEVERITY:TYPE:EXPECTED:DETECTED] Human-readable description
@@ -334,8 +329,7 @@ export function parseIssue(issue: string): ParsedIssue {
 - Easy to grep/search
 - Backwards compatible (parser handles legacy formats)
 
-### Document Review UI Patterns (added 2026-01-31)
-
+### Document Review UI Patterns
 **Split-View with URL State**: Use URL query params for selection state instead of React state:
 ```tsx
 // URL: /engagements/[id]?doc=[docId]
@@ -369,8 +363,7 @@ override: z.object({
 }).nullable().default(null)
 ```
 
-### Shared Constants Pattern (added 2026-01-31)
-
+### Shared Constants Pattern
 **Export Constants from Types**: Define allowed values once and derive types from them:
 ```typescript
 // src/types.ts
@@ -383,8 +376,7 @@ if (!DOCUMENT_TYPES.includes(newType as any)) {
 }
 ```
 
-### Dropbox Download Simplification (added 2026-01-31)
-
+### Dropbox Download Simplification
 **Use `downloadZip` for Shared Folders**: When downloading from Dropbox shared folders, `downloadZip` is simpler than `download` for single files:
 ```typescript
 // The downloadZip endpoint handles shared folder permissions better
@@ -399,8 +391,7 @@ console.log(`[DROPBOX] Found ${entries.length} entries`)
 console.log(`[DROPBOX] Downloading: ${entry.name} (${entry.size} bytes)`)
 ```
 
-### Render Deployment Branch (added 2026-02-04)
-
+### Render Deployment Branch
 **CRITICAL: Render deploys from `production` branch, not `master`**. When pushing fixes:
 ```bash
 # Wrong - this won't trigger a deploy
@@ -413,8 +404,7 @@ git checkout master
 
 The `render.yaml` `preDeployCommand` runs BEFORE the Docker container starts. If you need Prisma flags like `--accept-data-loss`, add them there, not in `docker-entrypoint.sh`.
 
-### Dropbox Cursor Reset (added 2026-02-04)
-
+### Dropbox Cursor Reset
 **Handle 409 "reset" errors**: Dropbox cursors (storagePageToken) can expire. When this happens, `filesListFolderContinue` returns a 409 error with `error_summary: 'reset/'`. Handle by catching and falling through to fresh sync:
 ```typescript
 try {
@@ -427,3 +417,47 @@ try {
     throw error
   }
 }
+```
+
+### Vitest Mocking Patterns
+
+**Always use both clear and reset in beforeEach**:
+```typescript
+beforeEach(() => {
+  vi.clearAllMocks()  // Clears call history
+  vi.resetAllMocks()  // Resets mock implementations (mockResolvedValueOnce, etc.)
+})
+```
+
+**Use vi.hoisted() for mock variables**: `vi.mock()` is hoisted to the top of the file, so variables aren't available yet:
+```typescript
+// Wrong - variables not available when vi.mock() is hoisted
+const mockFn = vi.fn()
+vi.mock('module', () => ({ fn: mockFn }))  // Error: Cannot access before initialization
+
+// Correct - vi.hoisted() runs before mocks
+const { mockFn } = vi.hoisted(() => ({ mockFn: vi.fn() }))
+vi.mock('module', () => ({ fn: mockFn }))
+```
+
+**Mock OpenAI with zod helper**: The openai module imports `openai/helpers/zod`, so mock both:
+```typescript
+vi.mock('openai', () => ({
+  default: vi.fn(() => ({
+    chat: { completions: { parse: mockParse, create: mockCreate } }
+  }))
+}))
+vi.mock('openai/helpers/zod', () => ({
+  zodResponseFormat: vi.fn((schema, name) => ({ type: 'json_schema', json_schema: { name } }))
+}))
+```
+
+**HTML5 validation blocks form submission in tests**: When testing error handling, use valid input formats to pass HTML5 validation:
+```typescript
+// Wrong - HTML5 validation prevents submission, mock never called
+await user.type(emailInput, 'invalid')  // type="email" blocks this
+
+// Correct - valid format passes validation, API mock returns error
+await user.type(emailInput, 'test@example.com')
+vi.mocked(createEngagement).mockRejectedValueOnce(new Error('Server error'))
+```
