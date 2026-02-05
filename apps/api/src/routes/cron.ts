@@ -155,7 +155,7 @@ async function pollEngagement(engagement: {
       // Just update page token if no new files
       await prisma.engagement.update({
         where: { id: engagement.id },
-        data: { storagePageToken: nextPageToken, deltaLink: nextPageToken }
+        data: { storagePageToken: nextPageToken }
       })
       return
     }
