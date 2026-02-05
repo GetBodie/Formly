@@ -7,6 +7,7 @@ import { dispatch } from '../lib/agents/dispatcher.js'
 import { runReconciliationAgent } from '../lib/agents/reconciliation.js'
 import { generatePrepBrief } from '../lib/openai.js'
 import { runInBackground } from '../workers/background.js'
+import { pollEngagement } from '../lib/poll-engagement.js'
 import type { ChecklistItem, Document, Reconciliation } from '../types.js'
 
 const app = new Hono()
@@ -225,6 +226,49 @@ app.post('/:id/retry-documents', async (c) => {
     message: `Retrying ${pendingDocs.length} PENDING documents`,
     retried: pendingDocs.length,
     documentIds: pendingDocs.map(d => d.id)
+  })
+})
+
+// POST /api/engagements/:id/process - Poll storage and dispatch pending docs
+app.post('/:id/process', async (c) => {
+  const id = c.req.param('id')
+
+  const engagement = await prisma.engagement.findUnique({ where: { id } })
+
+  if (!engagement) {
+    return c.json({ error: 'Engagement not found' }, 404)
+  }
+
+  if (!['INTAKE_DONE', 'COLLECTING'].includes(engagement.status)) {
+    return c.json(
+      { error: 'Engagement must be in INTAKE_DONE or COLLECTING status' },
+      400
+    )
+  }
+
+  // Poll storage for new files
+  await pollEngagement(engagement)
+
+  // Re-fetch to get updated document list
+  const updated = await prisma.engagement.findUnique({ where: { id } })
+  const documents = (updated?.documents as Document[]) || []
+
+  // Dispatch document_uploaded for any remaining PENDING docs
+  const pendingDocs = documents.filter(d => d.documentType === 'PENDING' && d.processingStatus !== 'in_progress')
+  for (const doc of pendingDocs) {
+    runInBackground(() => dispatch({
+      type: 'document_uploaded',
+      engagementId: id,
+      documentId: doc.id,
+      storageItemId: doc.storageItemId,
+      fileName: doc.fileName
+    }))
+  }
+
+  return c.json({
+    success: true,
+    totalDocuments: documents.length,
+    pendingDocuments: pendingDocs.length,
   })
 })
 

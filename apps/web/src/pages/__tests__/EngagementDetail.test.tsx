@@ -13,6 +13,7 @@ vi.mock('../../api/client', () => ({
   getEmailPreview: vi.fn(),
   sendDocumentFollowUp: vi.fn(),
   getFriendlyIssues: vi.fn(),
+  processEngagement: vi.fn(),
   DOCUMENT_TYPES: ['W-2', '1099-NEC', '1099-MISC', '1099-INT', 'K-1', 'RECEIPT', 'STATEMENT', 'OTHER', 'PENDING'],
 }))
 
@@ -23,6 +24,7 @@ import {
   reclassifyDocument,
   getEmailPreview,
   getFriendlyIssues,
+  processEngagement,
 } from '../../api/client'
 
 function renderWithRouter(engagementId: string, searchParams = '') {
@@ -347,6 +349,122 @@ describe('EngagementDetail', () => {
     })
   })
 
+  describe('Document processing', () => {
+    it('shows spinner for in_progress documents', async () => {
+      const engagementWithProcessing = {
+        ...mockEngagement,
+        documents: [
+          {
+            ...mockEngagement.documents[0],
+            documentType: 'PENDING',
+            processingStatus: 'in_progress',
+            processingStartedAt: '2025-01-15T00:00:00Z',
+          },
+        ],
+      }
+      vi.mocked(getEngagement).mockResolvedValueOnce(engagementWithProcessing as any)
+
+      renderWithRouter('eng_001')
+
+      await waitFor(() => {
+        expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
+      })
+
+      expect(screen.getByText('Processing...')).toBeInTheDocument()
+    })
+
+    it('shows "Processing documents..." banner when processing docs exist', async () => {
+      const engagementWithProcessing = {
+        ...mockEngagement,
+        documents: [
+          {
+            ...mockEngagement.documents[0],
+            documentType: 'PENDING',
+            processingStatus: 'pending',
+          },
+        ],
+      }
+      vi.mocked(getEngagement).mockResolvedValueOnce(engagementWithProcessing as any)
+
+      renderWithRouter('eng_001')
+
+      await waitFor(() => {
+        expect(screen.getByText('Processing documents...')).toBeInTheDocument()
+      })
+    })
+
+    it('shows "Check for Documents" button for COLLECTING status', async () => {
+      vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
+
+      renderWithRouter('eng_001')
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Check for Documents/i })).toBeInTheDocument()
+      })
+    })
+
+    it('calls processEngagement when "Check for Documents" clicked', async () => {
+      const user = userEvent.setup()
+      vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(processEngagement).mockResolvedValueOnce({
+        success: true,
+        totalDocuments: 1,
+        pendingDocuments: 0,
+      })
+      // Re-fetch after process
+      vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
+
+      renderWithRouter('eng_001')
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Check for Documents/i })).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('button', { name: /Check for Documents/i }))
+
+      await waitFor(() => {
+        expect(processEngagement).toHaveBeenCalledWith('eng_001')
+      })
+    })
+
+    it('does not show "Check for Documents" button for READY status', async () => {
+      const readyEngagement = { ...mockEngagement, status: 'READY' }
+      vi.mocked(getEngagement).mockResolvedValueOnce(readyEngagement as any)
+
+      renderWithRouter('eng_001')
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Client')).toBeInTheDocument()
+      })
+
+      expect(screen.queryByRole('button', { name: /Check for Documents/i })).not.toBeInTheDocument()
+    })
+
+    it('auto-polls when status is COLLECTING', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.mocked(getEngagement).mockResolvedValue(mockEngagement as any)
+
+      renderWithRouter('eng_001')
+
+      // Wait for initial render
+      await vi.waitFor(() => {
+        expect(screen.getByText('Test Client')).toBeInTheDocument()
+      })
+
+      // Initial load call
+      expect(getEngagement).toHaveBeenCalledTimes(1)
+
+      // Advance past one polling interval
+      await vi.advanceTimersByTimeAsync(3100)
+
+      await vi.waitFor(() => {
+        expect(getEngagement).toHaveBeenCalledTimes(2)
+      })
+
+      vi.useRealTimers()
+    })
+  })
+
   describe('Issue display', () => {
     it('displays document issues with severity indicators', async () => {
       const engagementWithIssues = {
@@ -366,7 +484,7 @@ describe('EngagementDetail', () => {
           },
         ],
       }
-      vi.mocked(getEngagement).mockResolvedValueOnce(engagementWithIssues as any)
+      vi.mocked(getEngagement).mockResolvedValue(engagementWithIssues as any)
 
       renderWithRouter('eng_001')
 
@@ -394,7 +512,7 @@ describe('EngagementDetail', () => {
           },
         ],
       }
-      vi.mocked(getEngagement).mockResolvedValueOnce(engagementWithIssues as any)
+      vi.mocked(getEngagement).mockResolvedValue(engagementWithIssues as any)
       vi.mocked(getFriendlyIssues).mockResolvedValueOnce({
         issues: [
           {

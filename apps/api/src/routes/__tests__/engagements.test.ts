@@ -30,6 +30,10 @@ vi.mock('../../lib/agents/dispatcher.js', () => ({
   dispatch: vi.fn(async () => {}),
 }))
 
+vi.mock('../../lib/poll-engagement.js', () => ({
+  pollEngagement: vi.fn(async () => {}),
+}))
+
 vi.mock('../../lib/agents/reconciliation.js', () => ({
   runReconciliationAgent: vi.fn(async () => ({
     isReady: false,
@@ -47,6 +51,7 @@ vi.mock('../../workers/background.js', () => ({
 
 import { prisma } from '../../lib/prisma.js'
 import { runReconciliationAgent } from '../../lib/agents/reconciliation.js'
+import { pollEngagement } from '../../lib/poll-engagement.js'
 
 const app = new Hono().route('/api/engagements', engagementRoutes)
 
@@ -302,6 +307,70 @@ describe('Engagement Routes', () => {
       expect(res.status).toBe(200)
       const data = (await res.json()) as Record<string, unknown>
       expect(data.retried).toBe(0)
+    })
+  })
+
+  describe('POST /api/engagements/:id/process', () => {
+    it('returns 200 with document counts for COLLECTING engagement', async () => {
+      const docs = [
+        createMockDocument({ id: 'doc_1', documentType: 'PENDING', processingStatus: 'pending' }),
+        createMockDocument({ id: 'doc_2', documentType: 'W-2', processingStatus: 'classified' }),
+      ]
+      const mockEngagement = createMockEngagement({
+        id: 'eng_123',
+        status: 'COLLECTING',
+        documents: docs,
+      })
+
+      // First findUnique for initial check
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      // Second findUnique after pollEngagement
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+
+      const res = await app.request(
+        createRequest('/api/engagements/eng_123/process', { method: 'POST' })
+      )
+
+      expect(res.status).toBe(200)
+      const data = (await res.json()) as Record<string, unknown>
+      expect(data.success).toBe(true)
+      expect(data.totalDocuments).toBe(2)
+      expect(data.pendingDocuments).toBe(1)
+      expect(pollEngagement).toHaveBeenCalledWith(mockEngagement)
+    })
+
+    it('returns 404 for missing engagement', async () => {
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(null)
+
+      const res = await app.request(
+        createRequest('/api/engagements/nonexistent/process', { method: 'POST' })
+      )
+
+      expect(res.status).toBe(404)
+    })
+
+    it('returns 400 for wrong status (PENDING)', async () => {
+      const mockEngagement = createMockEngagement({ id: 'eng_123', status: 'PENDING' })
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+
+      const res = await app.request(
+        createRequest('/api/engagements/eng_123/process', { method: 'POST' })
+      )
+
+      expect(res.status).toBe(400)
+      const data = (await res.json()) as Record<string, unknown>
+      expect(data.error).toContain('INTAKE_DONE or COLLECTING')
+    })
+
+    it('returns 400 for wrong status (READY)', async () => {
+      const mockEngagement = createMockEngagement({ id: 'eng_123', status: 'READY' })
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+
+      const res = await app.request(
+        createRequest('/api/engagements/eng_123/process', { method: 'POST' })
+      )
+
+      expect(res.status).toBe(400)
     })
   })
 

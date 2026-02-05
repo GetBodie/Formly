@@ -53,6 +53,8 @@ interface Document {
   issues: string[]
   issueDetails: FriendlyIssue[] | null // Cached LLM-generated issue details
   classifiedAt: string | null
+  processingStatus?: 'pending' | 'in_progress' | 'classified'
+  processingStartedAt?: string | null
   // Document review fields
   approved: boolean | null
   approvedAt: string | null
@@ -177,6 +179,12 @@ export async function getFriendlyIssues(
   docId: string
 ): Promise<{ issues: FriendlyIssue[] }> {
   return fetchApi(`/api/engagements/${engagementId}/documents/${docId}/friendly-issues`)
+}
+
+export async function processEngagement(id: string): Promise<{ success: boolean; totalDocuments: number; pendingDocuments: number }> {
+  return fetchApi(`/api/engagements/${id}/process`, {
+    method: 'POST',
+  })
 }
 
 export { DOCUMENT_TYPES }

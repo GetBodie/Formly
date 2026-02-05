@@ -9,6 +9,7 @@ import {
   getEmailPreview,
   sendDocumentFollowUp,
   getFriendlyIssues,
+  processEngagement,
   DOCUMENT_TYPES,
 } from '../client'
 
@@ -270,6 +271,25 @@ describe('API Client', () => {
         expect.any(Object)
       )
       expect(result.issues).toHaveLength(1)
+    })
+  })
+
+  describe('processEngagement', () => {
+    it('calls correct endpoint', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, totalDocuments: 3, pendingDocuments: 1 }),
+      })
+
+      const result = await processEngagement('eng_001')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/engagements/eng_001/process',
+        expect.objectContaining({ method: 'POST' })
+      )
+      expect(result.success).toBe(true)
+      expect(result.totalDocuments).toBe(3)
+      expect(result.pendingDocuments).toBe(1)
     })
   })
 

@@ -9,6 +9,7 @@ import {
   sendDocumentFollowUp,
   getEmailPreview,
   getFriendlyIssues,
+  processEngagement,
   DOCUMENT_TYPES,
   type Engagement,
   type ChecklistItem,
@@ -39,6 +40,7 @@ export default function EngagementDetail() {
   const [error, setError] = useState<string | null>(null)
   const [generatingBrief, setGeneratingBrief] = useState(false)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
+  const [checkingForDocs, setCheckingForDocs] = useState(false)
 
   const selectedDocId = searchParams.get('doc')
 
@@ -50,6 +52,18 @@ export default function EngagementDetail() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [id])
+
+  // Auto-poll while engagement is actively processing
+  useEffect(() => {
+    if (!id || !engagement) return
+    if (!['INTAKE_DONE', 'COLLECTING'].includes(engagement.status)) return
+
+    const interval = setInterval(() => {
+      getEngagement(id).then(setEngagement).catch(() => {})
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [id, engagement?.status])
 
   async function handleGenerateBrief() {
     if (!id || !engagement) return
@@ -114,6 +128,21 @@ export default function EngagementDetail() {
     }
   }
 
+  async function handleCheckForDocs() {
+    if (!id || !engagement) return
+
+    setCheckingForDocs(true)
+    try {
+      await processEngagement(id)
+      const updated = await getEngagement(id)
+      setEngagement(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to check for documents')
+    } finally {
+      setCheckingForDocs(false)
+    }
+  }
+
   function selectDocument(docId: string | null) {
     if (docId) {
       setSearchParams({ doc: docId })
@@ -141,6 +170,11 @@ export default function EngagementDetail() {
   const checklist = (engagement.checklist as ChecklistItem[]) || []
   const documents = (engagement.documents as Document[]) || []
   const reconciliation = engagement.reconciliation as Reconciliation | null
+
+  function isDocProcessing(doc: Document): boolean {
+    return doc.processingStatus === 'in_progress' ||
+      (doc.documentType === 'PENDING' && doc.processingStatus !== 'classified')
+  }
 
   // Build a map of checklist item statuses from reconciliation
   const itemStatusMap = new Map<string, { status: string; documentIds: string[] }>()
@@ -212,11 +246,27 @@ export default function EngagementDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Document List */}
           <div className="bg-white rounded-lg border">
-            <div className="p-4 border-b">
+            <div className="p-4 border-b flex items-center justify-between">
               <h2 className="font-semibold">Documents ({documents.length})</h2>
+              {['INTAKE_DONE', 'COLLECTING'].includes(engagement.status) && (
+                <button
+                  onClick={handleCheckForDocs}
+                  disabled={checkingForDocs}
+                  className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {checkingForDocs ? 'Checking...' : 'Check for Documents'}
+                </button>
+              )}
             </div>
+            {documents.some(d => isDocProcessing(d)) && (
+              <div className="px-4 py-2 bg-blue-50 border-b flex items-center gap-2 text-sm text-blue-800">
+                <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                Processing documents...
+              </div>
+            )}
             <div className="divide-y max-h-[600px] overflow-y-auto">
               {documents.map(doc => {
+                const processing = isDocProcessing(doc)
                 const docHasErrors = hasErrors(doc.issues)
                 const docHasWarnings = hasWarnings(doc.issues)
                 const isResolved = doc.issues.length === 0 || doc.approved === true
@@ -224,6 +274,8 @@ export default function EngagementDetail() {
 
                 const bgColor = isSelected
                   ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                  : processing
+                  ? 'bg-gray-50'
                   : docHasErrors && !isResolved
                   ? 'bg-red-50 border-l-4 border-l-red-500'
                   : docHasWarnings && !isResolved
@@ -239,7 +291,9 @@ export default function EngagementDetail() {
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="font-medium flex items-center gap-2">
-                          {isResolved ? (
+                          {processing ? (
+                            <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                          ) : isResolved ? (
                             <span className="text-green-600">✓</span>
                           ) : docHasErrors ? (
                             <span className="text-red-600">✗</span>
@@ -249,8 +303,8 @@ export default function EngagementDetail() {
                           {doc.fileName}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {doc.documentType}
-                          {doc.taxYear && ` · ${doc.taxYear}`}
+                          {processing ? 'Processing...' : doc.documentType}
+                          {!processing && doc.taxYear && ` · ${doc.taxYear}`}
                           {doc.override && (
                             <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1 rounded">
                               overridden
@@ -258,7 +312,7 @@ export default function EngagementDetail() {
                           )}
                         </div>
                       </div>
-                      {doc.issues.length > 0 && !isResolved && (
+                      {doc.issues.length > 0 && !isResolved && !processing && (
                         <span className={`text-xs px-2 py-1 rounded-full ${
                           docHasErrors ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
                         }`}>
