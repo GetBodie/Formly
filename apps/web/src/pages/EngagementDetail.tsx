@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
+import Markdown from 'react-markdown'
 import {
   getEngagement,
   generateBrief,
@@ -351,10 +352,8 @@ export default function EngagementDetail() {
             )}
           </div>
           {engagement.prepBrief ? (
-            <div className="prose prose-sm max-w-none">
-              <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap font-mono text-sm">
-                {engagement.prepBrief}
-              </div>
+            <div className="p-4 bg-gray-50 rounded-lg prose prose-sm max-w-none prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-0">
+              <Markdown>{engagement.prepBrief}</Markdown>
             </div>
           ) : (
             <p className="text-gray-500">
