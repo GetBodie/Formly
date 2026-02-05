@@ -87,7 +87,7 @@ describe('Webhook Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.status).toBe('processing')
     })
 
@@ -106,7 +106,7 @@ describe('Webhook Routes', () => {
       )
 
       expect(res.status).toBe(401)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toBe('Invalid signature')
     })
 
@@ -153,7 +153,7 @@ describe('Webhook Routes', () => {
       )
 
       expect(res.status).toBe(400)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toBe('Missing engagement_id')
     })
 
@@ -197,7 +197,7 @@ describe('Webhook Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.status).toBe('duplicate')
     })
 

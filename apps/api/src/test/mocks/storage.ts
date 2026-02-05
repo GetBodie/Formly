@@ -52,17 +52,17 @@ vi.mock('../../lib/storage/sharepoint.js', () => ({
 
 // Reset all storage mocks
 export function resetStorageMocks(): void {
-  mockDropboxClient.syncFolder.mockClear()
-  mockDropboxClient.downloadFile.mockClear()
-  mockDropboxClient.resolveUrl.mockClear()
+  (mockDropboxClient.syncFolder as ReturnType<typeof vi.fn>).mockClear()
+  ;(mockDropboxClient.downloadFile as ReturnType<typeof vi.fn>).mockClear()
+  ;(mockDropboxClient.resolveUrl as ReturnType<typeof vi.fn>).mockClear()
 
-  mockGoogleDriveClient.syncFolder.mockClear()
-  mockGoogleDriveClient.downloadFile.mockClear()
-  mockGoogleDriveClient.resolveUrl.mockClear()
+  ;(mockGoogleDriveClient.syncFolder as ReturnType<typeof vi.fn>).mockClear()
+  ;(mockGoogleDriveClient.downloadFile as ReturnType<typeof vi.fn>).mockClear()
+  ;(mockGoogleDriveClient.resolveUrl as ReturnType<typeof vi.fn>).mockClear()
 
-  mockSharePointClient.syncFolder.mockClear()
-  mockSharePointClient.downloadFile.mockClear()
-  mockSharePointClient.resolveUrl.mockClear()
+  ;(mockSharePointClient.syncFolder as ReturnType<typeof vi.fn>).mockClear()
+  ;(mockSharePointClient.downloadFile as ReturnType<typeof vi.fn>).mockClear()
+  ;(mockSharePointClient.resolveUrl as ReturnType<typeof vi.fn>).mockClear()
 }
 
 // Helper to set custom sync results

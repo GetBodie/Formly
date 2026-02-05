@@ -60,7 +60,7 @@ describe('Cron Routes', () => {
       )
 
       expect(res.status).toBe(401)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toBe('Unauthorized')
     })
 
@@ -99,7 +99,7 @@ describe('Cron Routes', () => {
       const res = await app.request(createRequest('/api/cron/poll-storage'))
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.queued).toBe(2)
     })
 
@@ -125,7 +125,7 @@ describe('Cron Routes', () => {
       const res = await app.request(createRequest('/api/cron/poll-storage'))
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.retriedStuck).toBeGreaterThanOrEqual(0)
     })
 
@@ -198,7 +198,7 @@ describe('Cron Routes', () => {
       const res = await app.request(createRequest('/api/cron/check-reminders'))
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.checked).toBe(1)
       expect(data.engagementIds).toContain('eng_stale')
 
@@ -214,7 +214,7 @@ describe('Cron Routes', () => {
       const res = await app.request(createRequest('/api/cron/check-reminders'))
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.checked).toBe(0)
       expect(data.engagementIds).toEqual([])
     })

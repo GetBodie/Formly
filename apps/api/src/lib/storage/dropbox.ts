@@ -123,7 +123,7 @@ export const dropboxClient: StorageClient = {
   async downloadFile(fileId: string, options?: SyncOptions): Promise<DownloadResult> {
     const dbx = getClient()
     const sharedLinkUrl = options?.sharedLinkUrl
-    const fileName = options?.fileName
+    const inputFileName = options?.fileName
 
     console.log(`[DROPBOX] Downloading file: ${fileId}${sharedLinkUrl ? ' (shared folder)' : ''}`)
 
@@ -133,10 +133,10 @@ export const dropboxClient: StorageClient = {
       if (sharedLinkUrl) {
         // Determine the path to use:
         // - If fileId starts with /, it's already a path (new format)
-        // - Otherwise it's a legacy file ID, construct path from fileName
+        // - Otherwise it's a legacy file ID, construct path from inputFileName
         let filePath = fileId
-        if (!fileId.startsWith('/') && fileName) {
-          filePath = `/${fileName}`
+        if (!fileId.startsWith('/') && inputFileName) {
+          filePath = `/${inputFileName}`
           console.log(`[DROPBOX] Legacy file ID detected, using path from fileName: ${filePath}`)
         }
         console.log(`[DROPBOX] Using shared link download with path: ${filePath}`)

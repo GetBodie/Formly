@@ -72,7 +72,7 @@ describe('Engagement Routes', () => {
       const res = await app.request(createRequest('/api/engagements'))
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data).toHaveLength(2)
       expect(data[0].clientName).toBe('Client 1')
     })
@@ -83,7 +83,7 @@ describe('Engagement Routes', () => {
       const res = await app.request(createRequest('/api/engagements'))
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data).toEqual([])
     })
   })
@@ -109,7 +109,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(201)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.clientName).toBe('New Client')
     })
 
@@ -127,7 +127,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(400)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toContain('Unsupported storage URL')
     })
 
@@ -171,7 +171,7 @@ describe('Engagement Routes', () => {
       const res = await app.request(createRequest('/api/engagements/eng_123'))
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.id).toBe('eng_123')
     })
 
@@ -181,7 +181,7 @@ describe('Engagement Routes', () => {
       const res = await app.request(createRequest('/api/engagements/nonexistent'))
 
       expect(res.status).toBe(404)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toBe('Engagement not found')
     })
   })
@@ -202,7 +202,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.storageFolderId).toBe('/new-folder')
     })
 
@@ -238,7 +238,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.success).toBe(true)
       expect(data.brief).toContain('# Prep Brief')
     })
@@ -252,7 +252,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(400)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toContain('READY status')
     })
 
@@ -283,7 +283,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.retried).toBe(1)
       expect(data.documentIds).toContain('doc_1')
     })
@@ -300,7 +300,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.retried).toBe(0)
     })
   })
@@ -319,7 +319,7 @@ describe('Engagement Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.isReady).toBe(true)
       expect(data.completionPercentage).toBe(100)
     })

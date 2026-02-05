@@ -73,7 +73,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.success).toBe(true)
       expect(data.document.approved).toBe(true)
       expect(data.document.approvedAt).toBeDefined()
@@ -89,7 +89,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(404)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toBe('Engagement not found')
     })
 
@@ -107,7 +107,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(404)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toBe('Document not found')
     })
   })
@@ -131,7 +131,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.success).toBe(true)
       expect(data.document.documentType).toBe('1099-NEC')
       expect(data.document.override.originalType).toBe('W-2')
@@ -192,7 +192,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.subject).toBeDefined()
       expect(data.body).toBeDefined()
       expect(data.recipientEmail).toBe('client@example.com')
@@ -211,7 +211,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(400)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.error).toContain('no issues')
     })
 
@@ -247,7 +247,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.success).toBe(true)
       expect(sendEmail).toHaveBeenCalledWith(
         'client@example.com',
@@ -329,7 +329,7 @@ describe('Document Routes', () => {
           original: 'Wrong year',
           friendlyMessage: 'This is cached',
           suggestedAction: 'Do something',
-          severity: 'error',
+          severity: 'error' as const,
         },
       ]
       const doc = createMockDocument({
@@ -348,7 +348,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.issues[0].friendlyMessage).toBe('This is cached')
       expect(generateFriendlyIssues).not.toHaveBeenCalled()
     })
@@ -386,7 +386,7 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = await res.json()
+      const data = (await res.json()) as Record<string, unknown>
       expect(data.issues).toEqual([])
     })
 
