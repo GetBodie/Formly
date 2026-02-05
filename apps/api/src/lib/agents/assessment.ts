@@ -58,7 +58,7 @@ export const assessmentServer = createSdkMcpServer({
           const client = getStorageClient(provider)
           const { buffer, mimeType, fileName, size } = await client.downloadFile(
             args.storageItemId,
-            { driveId: driveId || undefined, sharedLinkUrl: folderUrl || undefined }
+            { driveId: driveId || undefined, sharedLinkUrl: folderUrl || undefined, fileName: args.fileName }
           )
 
           console.log(`[ASSESSMENT] Downloaded ${fileName} (${size} bytes, ${mimeType})`)

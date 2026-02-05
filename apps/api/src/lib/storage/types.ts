@@ -31,6 +31,7 @@ export interface FolderInfo {
 export interface SyncOptions {
   driveId?: string        // SharePoint only
   sharedLinkUrl?: string  // Dropbox shared folder URL
+  fileName?: string       // For constructing path from legacy file IDs
 }
 
 export interface StorageClient {

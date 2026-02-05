@@ -29,7 +29,10 @@ export const dropboxClient: StorageClient = {
         const files: StorageFile[] = response.result.entries
           .filter(entry => entry['.tag'] === 'file')
           .map(entry => ({
-            id: (entry as { id: string }).id,
+            // For shared folders, use path_display since download needs the path
+            id: sharedLinkUrl
+              ? ((entry as { path_display: string }).path_display || `/${entry.name}`)
+              : (entry as { id: string }).id,
             name: entry.name,
             mimeType: getMimeType(entry.name),
             deleted: false,
@@ -120,6 +123,7 @@ export const dropboxClient: StorageClient = {
   async downloadFile(fileId: string, options?: SyncOptions): Promise<DownloadResult> {
     const dbx = getClient()
     const sharedLinkUrl = options?.sharedLinkUrl
+    const fileName = options?.fileName
 
     console.log(`[DROPBOX] Downloading file: ${fileId}${sharedLinkUrl ? ' (shared folder)' : ''}`)
 
@@ -127,11 +131,19 @@ export const dropboxClient: StorageClient = {
       // For shared folders accessed via URL, use sharingGetSharedLinkFile
       // The fileId for shared folders is the path (e.g., /filename.jpg) stored during sync
       if (sharedLinkUrl) {
-        console.log(`[DROPBOX] Using shared link download with path: ${fileId}`)
+        // Determine the path to use:
+        // - If fileId starts with /, it's already a path (new format)
+        // - Otherwise it's a legacy file ID, construct path from fileName
+        let filePath = fileId
+        if (!fileId.startsWith('/') && fileName) {
+          filePath = `/${fileName}`
+          console.log(`[DROPBOX] Legacy file ID detected, using path from fileName: ${filePath}`)
+        }
+        console.log(`[DROPBOX] Using shared link download with path: ${filePath}`)
 
         const response = await dbx.sharingGetSharedLinkFile({
           url: sharedLinkUrl,
-          path: fileId  // fileId is actually the path for shared folders
+          path: filePath
         })
 
         const result = response.result as unknown as { fileBinary: Buffer; name: string; size: number }
