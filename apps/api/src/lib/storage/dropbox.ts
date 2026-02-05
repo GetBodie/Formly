@@ -23,30 +23,41 @@ export const dropboxClient: StorageClient = {
 
     if (pageToken) {
       // Continue from cursor
-      const response = await dbx.filesListFolderContinue({ cursor: pageToken })
+      try {
+        const response = await dbx.filesListFolderContinue({ cursor: pageToken })
 
-      const files: StorageFile[] = response.result.entries
-        .filter(entry => entry['.tag'] === 'file')
-        .map(entry => ({
-          id: (entry as { id: string }).id,
-          name: entry.name,
-          mimeType: getMimeType(entry.name),
-          deleted: false,
-        }))
+        const files: StorageFile[] = response.result.entries
+          .filter(entry => entry['.tag'] === 'file')
+          .map(entry => ({
+            id: (entry as { id: string }).id,
+            name: entry.name,
+            mimeType: getMimeType(entry.name),
+            deleted: false,
+          }))
 
-      // Check for deleted files
-      const deletedFiles: StorageFile[] = response.result.entries
-        .filter(entry => entry['.tag'] === 'deleted')
-        .map(entry => ({
-          id: entry.name, // Deleted entries don't have ID
-          name: entry.name,
-          mimeType: 'application/octet-stream',
-          deleted: true,
-        }))
+        // Check for deleted files
+        const deletedFiles: StorageFile[] = response.result.entries
+          .filter(entry => entry['.tag'] === 'deleted')
+          .map(entry => ({
+            id: entry.name, // Deleted entries don't have ID
+            name: entry.name,
+            mimeType: 'application/octet-stream',
+            deleted: true,
+          }))
 
-      return {
-        files: [...files, ...deletedFiles],
-        nextPageToken: response.result.cursor,
+        return {
+          files: [...files, ...deletedFiles],
+          nextPageToken: response.result.cursor,
+        }
+      } catch (error: unknown) {
+        // Handle cursor reset - Dropbox returns 409 with 'reset' tag when cursor expires
+        const dropboxError = error as { status?: number; error?: { error_summary?: string } }
+        if (dropboxError.status === 409 && dropboxError.error?.error_summary?.includes('reset')) {
+          console.log('[DROPBOX] Cursor expired, restarting sync from scratch')
+          // Fall through to initial sync below
+        } else {
+          throw error
+        }
       }
     }
 
