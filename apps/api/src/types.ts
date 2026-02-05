@@ -14,6 +14,14 @@ export const ChecklistItemSchema = z.object({
   expectedDocumentType: z.enum(['W-2', '1099-NEC', '1099-MISC', '1099-INT', 'K-1', 'RECEIPT', 'STATEMENT', 'OTHER']).nullable(),
 })
 
+// Friendly issue format for cached LLM-generated messages
+export const FriendlyIssueSchema = z.object({
+  original: z.string(),
+  friendlyMessage: z.string(),
+  suggestedAction: z.string(),
+  severity: z.enum(['error', 'warning'])
+})
+
 export const DocumentSchema = z.object({
   id: z.string(),
   fileName: z.string(),
@@ -22,6 +30,7 @@ export const DocumentSchema = z.object({
   confidence: z.number(),
   taxYear: z.number().nullable(),
   issues: z.array(z.string()),
+  issueDetails: z.array(FriendlyIssueSchema).nullable().default(null), // Cached LLM-generated issue details
   classifiedAt: z.string().nullable(),
   // Processing state tracking for retry logic
   processingStatus: z.enum(['pending', 'in_progress', 'classified']).optional(), // defaults to 'pending' if missing
@@ -48,4 +57,5 @@ export const ReconciliationSchema = z.object({
 
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>
 export type Document = z.infer<typeof DocumentSchema>
+export type FriendlyIssue = z.infer<typeof FriendlyIssueSchema>
 export type Reconciliation = z.infer<typeof ReconciliationSchema>

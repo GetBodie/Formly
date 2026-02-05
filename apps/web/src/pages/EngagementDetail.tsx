@@ -400,13 +400,21 @@ function DocumentDetail({
   const [bodyInput, setBodyInput] = useState('')
   const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
 
-  // Fetch friendly issues when document changes
+  // Use cached issue details or fetch them for legacy documents
   useEffect(() => {
     if (doc.issues.length === 0) {
       setFriendlyIssues([])
       return
     }
 
+    // If cached issue details are available, use them immediately
+    if (doc.issueDetails && doc.issueDetails.length > 0) {
+      setFriendlyIssues(doc.issueDetails)
+      setLoadingIssues(false)
+      return
+    }
+
+    // Fallback: Fetch from API for legacy documents without cached data
     setLoadingIssues(true)
     getFriendlyIssues(engagementId, doc.id)
       .then(result => setFriendlyIssues(result.issues))
@@ -421,7 +429,7 @@ function DocumentDetail({
         })))
       })
       .finally(() => setLoadingIssues(false))
-  }, [engagementId, doc.id, doc.issues.length])
+  }, [engagementId, doc.id, doc.issues.length, doc.issueDetails])
 
   return (
     <>

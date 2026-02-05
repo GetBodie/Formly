@@ -1,10 +1,11 @@
 import { query, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 import { prisma } from '../prisma.js'
-import { classifyDocument as classifyWithOpenAI } from '../openai.js'
+import { classifyDocument as classifyWithOpenAI, generateFriendlyIssues } from '../openai.js'
 import { getStorageClient, type StorageProvider } from '../storage/index.js'
 import { extractDocument, isSupportedFileType } from '../document-extraction.js'
-import type { Document } from '../../types.js'
+import { parseIssue } from '../issues.js'
+import type { Document, FriendlyIssue } from '../../types.js'
 
 // Define the Assessment Agent's MCP server with tools
 export const assessmentServer = createSdkMcpServer({
@@ -346,6 +347,32 @@ export const assessmentServer = createSdkMcpServer({
           }
         }
 
+        // Generate issue details if there are any issues
+        let issueDetails: FriendlyIssue[] | null = null
+        if (args.issues.length > 0) {
+          try {
+            const parsedIssues = args.issues.map(issueStr => {
+              const parsed = parseIssue(issueStr)
+              return {
+                severity: parsed.severity,
+                type: parsed.type,
+                description: parsed.description
+              }
+            })
+
+            issueDetails = await generateFriendlyIssues(
+              documents[docIndex].fileName,
+              args.documentType,
+              engagement.taxYear,
+              parsedIssues
+            )
+            console.log(`[ASSESSMENT] Generated ${issueDetails.length} issue details for ${args.documentId}`)
+          } catch (error) {
+            console.error('[ASSESSMENT] Failed to generate issue details:', error)
+            // Continue without issue details - they can be generated on-demand
+          }
+        }
+
         // Update the document - mark as classified
         documents[docIndex] = {
           ...documents[docIndex],
@@ -353,6 +380,7 @@ export const assessmentServer = createSdkMcpServer({
           confidence: args.confidence,
           taxYear: args.taxYear,
           issues: args.issues,
+          issueDetails,
           classifiedAt: new Date().toISOString(),
           processingStatus: 'classified',
           processingStartedAt: null // Clear the timestamp

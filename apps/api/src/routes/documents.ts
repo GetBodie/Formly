@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js'
 import { sendEmail } from '../lib/email.js'
 import { parseIssue, getSuggestedAction } from '../lib/issues.js'
 import { generateFollowUpEmail, generateFriendlyIssues } from '../lib/openai.js'
+import { runReconciliationAgent } from '../lib/agents/reconciliation.js'
 import { DOCUMENT_TYPES, type Document } from '../types.js'
 
 const app = new Hono()
@@ -35,6 +36,14 @@ app.post(
       where: { id: engagementId },
       data: { documents }
     })
+
+    // Trigger reconciliation to match document to checklist and update completion
+    runReconciliationAgent({
+      trigger: 'document_assessed',
+      engagementId,
+      documentId: docId,
+      documentType: documents[docIndex].documentType
+    }).catch(err => console.error('[APPROVE] Reconciliation failed:', err))
 
     return c.json({ success: true, document: documents[docIndex] })
   }
@@ -81,6 +90,14 @@ app.post(
       where: { id: engagementId },
       data: { documents }
     })
+
+    // Trigger reconciliation to match document to checklist and update completion
+    runReconciliationAgent({
+      trigger: 'document_assessed',
+      engagementId,
+      documentId: docId,
+      documentType: newType
+    }).catch(err => console.error('[RECLASSIFY] Reconciliation failed:', err))
 
     return c.json({ success: true, document: doc })
   }
@@ -239,7 +256,7 @@ app.post(
 )
 
 // GET /api/engagements/:engagementId/documents/:docId/friendly-issues
-// Generate human-friendly issue messages for the admin UI
+// Return cached friendly issues or generate them on-demand for legacy documents
 app.get(
   '/:engagementId/documents/:docId/friendly-issues',
   async (c) => {
@@ -262,7 +279,12 @@ app.get(
       return c.json({ issues: [] })
     }
 
-    // Parse issues to structured format
+    // Return cached issue details if available
+    if (doc.issueDetails && doc.issueDetails.length > 0) {
+      return c.json({ issues: doc.issueDetails })
+    }
+
+    // Fallback: Generate friendly issues on-demand for legacy documents
     const parsedIssues = doc.issues.map(issueStr => {
       const parsed = parseIssue(issueStr)
       return {
@@ -272,7 +294,6 @@ app.get(
       }
     })
 
-    // Generate friendly messages using LLM
     const friendlyIssues = await generateFriendlyIssues(
       doc.fileName,
       doc.documentType,

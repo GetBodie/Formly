@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { getStorageClient, detectProvider } from '../lib/storage/index.js'
 import { dispatch } from '../lib/agents/dispatcher.js'
+import { runReconciliationAgent } from '../lib/agents/reconciliation.js'
 import { generatePrepBrief } from '../lib/openai.js'
 import { runInBackground } from '../workers/background.js'
 import type { ChecklistItem, Document, Reconciliation } from '../types.js'
@@ -225,6 +226,38 @@ app.post('/:id/retry-documents', async (c) => {
     retried: pendingDocs.length,
     documentIds: pendingDocs.map(d => d.id)
   })
+})
+
+// POST /api/engagements/:id/reconcile - Manually trigger reconciliation
+app.post('/:id/reconcile', async (c) => {
+  const { id } = c.req.param()
+
+  const engagement = await prisma.engagement.findUnique({
+    where: { id }
+  })
+
+  if (!engagement) {
+    return c.json({ error: 'Engagement not found' }, 404)
+  }
+
+  try {
+    const result = await runReconciliationAgent({
+      trigger: 'manual_reconciliation',
+      engagementId: id
+    })
+
+    return c.json({
+      message: 'Reconciliation complete',
+      isReady: result.isReady,
+      completionPercentage: result.completionPercentage
+    })
+  } catch (error) {
+    console.error(`[RECONCILE] Error for ${id}:`, error)
+    return c.json(
+      { error: error instanceof Error ? error.message : 'Reconciliation failed' },
+      500
+    )
+  }
 })
 
 export default app

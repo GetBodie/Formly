@@ -179,6 +179,7 @@ async function pollEngagement(engagement: {
         confidence: 0,
         taxYear: null,
         issues: [],
+        issueDetails: null,
         classifiedAt: null,
         approved: null,
         approvedAt: null,
