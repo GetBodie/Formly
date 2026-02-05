@@ -1,4 +1,7 @@
 import { extractDocument as mistralOCR, type OCRResult } from './mistral-ocr.js'
+import OpenAI from 'openai'
+
+const openai = new OpenAI()
 
 // Custom error for unsupported file types
 export class UnsupportedFileTypeError extends Error {
@@ -69,8 +72,6 @@ async function extractImage(buffer: Buffer, mimeType: string): Promise<Extractio
   let finalMimeType = mimeType
 
   // Convert HEIC to JPEG if needed
-  // Note: Mistral OCR may support HEIC directly, so we try that first
-  // If you need HEIC conversion, install sharp: npm install sharp
   if (mimeType === 'image/heic' || mimeType === 'image/heif') {
     try {
       // Dynamic import of sharp for optional HEIC conversion
@@ -81,19 +82,58 @@ async function extractImage(buffer: Buffer, mimeType: string): Promise<Extractio
       imageBuffer = await sharp(buffer).jpeg().toBuffer()
       finalMimeType = 'image/jpeg'
     } catch {
-      // sharp not available or conversion failed, try sending HEIC directly to Mistral
-      console.warn('[EXTRACTION] HEIC conversion not available, trying direct OCR')
+      console.warn('[EXTRACTION] HEIC conversion not available, trying direct extraction')
     }
   }
 
+  // Use OpenAI Vision for images (Mistral OCR only supports https URLs for images)
   const base64 = imageBuffer.toString('base64')
   const dataUri = `data:${finalMimeType};base64,${base64}`
 
-  const result = await mistralOCR({
-    documentUrl: dataUri,
+  console.log(`[EXTRACTION] Using OpenAI Vision for image (${finalMimeType})`)
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `You are a document OCR system. Extract ALL text content from this document image.
+Preserve the document structure as much as possible using markdown formatting.
+For tax documents (W-2, 1099, etc.), extract all box numbers and their values.
+For tables, format them in markdown.
+Be thorough - extract every piece of visible text.`,
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: dataUri,
+              detail: 'high',
+            },
+          },
+          {
+            type: 'text',
+            text: 'Extract all text content from this document image. Include all visible text, numbers, and labels.',
+          },
+        ],
+      },
+    ],
+    max_tokens: 4096,
   })
 
-  return normalizeOCRResult(result)
+  const extractedText = response.choices[0]?.message?.content ?? ''
+
+  console.log(`[EXTRACTION] Extracted ${extractedText.length} characters via OpenAI Vision`)
+
+  return {
+    markdown: extractedText,
+    tables: [],
+    pages: [{ index: 0, markdown: extractedText }],
+    confidence: extractedText.length > 100 ? 0.85 : 0.6,
+    method: 'ocr',
+  }
 }
 
 async function extractOfficeDocument(buffer: Buffer, mimeType: string): Promise<ExtractionResult> {
