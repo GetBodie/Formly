@@ -36,7 +36,7 @@ describe('NewEngagement', () => {
 
     expect(screen.getByLabelText(/Client Name/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Client Email/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/Dropbox Folder URL/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Storage Folder URL/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Create Engagement/i })).toBeInTheDocument()
   })
 
@@ -57,7 +57,7 @@ describe('NewEngagement', () => {
     await user.type(screen.getByLabelText(/Client Name/i), 'Test Client')
     await user.type(screen.getByLabelText(/Client Email/i), 'test@example.com')
     await user.type(
-      screen.getByLabelText(/Dropbox Folder URL/i),
+      screen.getByLabelText(/Storage Folder URL/i),
       'https://www.dropbox.com/sh/test123/xyz'
     )
 
@@ -85,7 +85,7 @@ describe('NewEngagement', () => {
     await user.type(screen.getByLabelText(/Client Name/i), 'Test Client')
     await user.type(screen.getByLabelText(/Client Email/i), 'test@example.com')
     await user.type(
-      screen.getByLabelText(/Dropbox Folder URL/i),
+      screen.getByLabelText(/Storage Folder URL/i),
       'https://www.dropbox.com/sh/test123/xyz'
     )
 
@@ -105,7 +105,7 @@ describe('NewEngagement', () => {
     // Use a valid email format to pass HTML5 validation - API will still reject
     await user.type(screen.getByLabelText(/Client Email/i), 'test@example.com')
     await user.type(
-      screen.getByLabelText(/Dropbox Folder URL/i),
+      screen.getByLabelText(/Storage Folder URL/i),
       'https://www.dropbox.com/sh/test123/xyz'
     )
 
@@ -127,7 +127,7 @@ describe('NewEngagement', () => {
     await user.type(screen.getByLabelText(/Client Name/i), 'Test Client')
     await user.type(screen.getByLabelText(/Client Email/i), 'test@example.com')
     await user.type(
-      screen.getByLabelText(/Dropbox Folder URL/i),
+      screen.getByLabelText(/Storage Folder URL/i),
       'https://www.dropbox.com/sh/test123/xyz'
     )
 
@@ -151,7 +151,7 @@ describe('NewEngagement', () => {
 
     const nameInput = screen.getByLabelText(/Client Name/i)
     const emailInput = screen.getByLabelText(/Client Email/i)
-    const urlInput = screen.getByLabelText(/Dropbox Folder URL/i)
+    const urlInput = screen.getByLabelText(/Storage Folder URL/i)
 
     expect(nameInput).toHaveAttribute('required')
     expect(emailInput).toHaveAttribute('required')
@@ -168,7 +168,64 @@ describe('NewEngagement', () => {
   it('validates URL input type', () => {
     renderWithRouter(<NewEngagement />)
 
-    const urlInput = screen.getByLabelText(/Dropbox Folder URL/i)
+    const urlInput = screen.getByLabelText(/Storage Folder URL/i)
     expect(urlInput).toHaveAttribute('type', 'url')
+  })
+
+  it('shows supported providers help text', () => {
+    renderWithRouter(<NewEngagement />)
+
+    expect(screen.getByText(/Supported: Dropbox, Google Drive, SharePoint\/OneDrive/i)).toBeInTheDocument()
+  })
+
+  it('detects Dropbox provider from URL', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<NewEngagement />)
+
+    await user.type(
+      screen.getByLabelText(/Storage Folder URL/i),
+      'https://www.dropbox.com/sh/test123/xyz'
+    )
+
+    expect(screen.getByText(/Detected:/)).toBeInTheDocument()
+    expect(screen.getByText('Dropbox')).toBeInTheDocument()
+  })
+
+  it('detects Google Drive provider from URL', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<NewEngagement />)
+
+    await user.type(
+      screen.getByLabelText(/Storage Folder URL/i),
+      'https://drive.google.com/drive/folders/abc123'
+    )
+
+    expect(screen.getByText(/Detected:/)).toBeInTheDocument()
+    expect(screen.getByText('Google Drive')).toBeInTheDocument()
+  })
+
+  it('detects SharePoint provider from URL', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<NewEngagement />)
+
+    await user.type(
+      screen.getByLabelText(/Storage Folder URL/i),
+      'https://company.sharepoint.com/sites/documents'
+    )
+
+    expect(screen.getByText(/Detected:/)).toBeInTheDocument()
+    expect(screen.getByText('SharePoint/OneDrive')).toBeInTheDocument()
+  })
+
+  it('shows warning for unrecognized URL', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<NewEngagement />)
+
+    await user.type(
+      screen.getByLabelText(/Storage Folder URL/i),
+      'https://unknown-service.com/folder'
+    )
+
+    expect(screen.getByText(/Unable to detect provider/)).toBeInTheDocument()
   })
 })

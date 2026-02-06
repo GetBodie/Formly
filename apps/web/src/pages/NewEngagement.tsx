@@ -1,11 +1,38 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { createEngagement } from '../api/client'
+
+type StorageProvider = 'sharepoint' | 'google-drive' | 'dropbox'
+
+/**
+ * Detect storage provider from URL (mirrors backend detectProvider)
+ */
+function detectProvider(url: string): StorageProvider | null {
+  if (url.includes('sharepoint.com') || url.includes('onedrive.com')) {
+    return 'sharepoint'
+  }
+  if (url.includes('drive.google.com')) {
+    return 'google-drive'
+  }
+  if (url.includes('dropbox.com')) {
+    return 'dropbox'
+  }
+  return null
+}
+
+const PROVIDER_LABELS: Record<StorageProvider, string> = {
+  'sharepoint': 'SharePoint/OneDrive',
+  'google-drive': 'Google Drive',
+  'dropbox': 'Dropbox',
+}
 
 export default function NewEngagement() {
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [storageFolderUrl, setStorageFolderUrl] = useState('')
+
+  const detectedProvider = useMemo(() => detectProvider(storageFolderUrl), [storageFolderUrl])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -72,19 +99,33 @@ export default function NewEngagement() {
 
             <div>
               <label htmlFor="storageFolderUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                Dropbox Folder URL
+                Storage Folder URL
               </label>
               <input
                 type="url"
                 id="storageFolderUrl"
                 name="storageFolderUrl"
                 required
+                value={storageFolderUrl}
+                onChange={(e) => setStorageFolderUrl(e.target.value)}
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="https://www.dropbox.com/scl/fo/..."
+                placeholder="https://www.dropbox.com/scl/fo/... or Google Drive/SharePoint URL"
               />
-              <p className="text-sm text-gray-500 mt-1">
-                The Dropbox shared folder where the client will upload documents
-              </p>
+              <div className="mt-2 space-y-1">
+                {detectedProvider ? (
+                  <p className="text-sm text-green-600 flex items-center gap-1">
+                    <span>✓</span>
+                    <span>Detected: <strong>{PROVIDER_LABELS[detectedProvider]}</strong></span>
+                  </p>
+                ) : storageFolderUrl.length > 0 ? (
+                  <p className="text-sm text-amber-600">
+                    Unable to detect provider. Please use a valid URL from a supported service.
+                  </p>
+                ) : null}
+                <p className="text-sm text-gray-500">
+                  Supported: Dropbox, Google Drive, SharePoint/OneDrive
+                </p>
+              </div>
             </div>
 
             {error && (
