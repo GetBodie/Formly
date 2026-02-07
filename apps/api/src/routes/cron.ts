@@ -25,7 +25,7 @@ app.get('/poll-storage', async (c) => {
   // Process all in background
   runAllInBackground(engagements.map(engagement => () => pollEngagement(engagement)))
 
-  // Also retry stuck documents (in_progress for > 5 minutes)
+  // Also retry stuck documents (processing for > 5 minutes)
   const stuckCount = await retryStuckDocuments(engagements)
 
   return c.json({ queued: engagements.length, retriedStuck: stuckCount })
@@ -64,7 +64,7 @@ app.get('/check-reminders', async (c) => {
   })
 })
 
-// Retry documents stuck in 'in_progress' status for > 5 minutes OR with PROCESSING_ERROR
+// Retry documents stuck in processing status for > 5 minutes OR with PROCESSING_ERROR
 async function retryStuckDocuments(engagements: { id: string; documents: unknown }[]): Promise<number> {
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
   let retriedCount = 0
@@ -73,10 +73,11 @@ async function retryStuckDocuments(engagements: { id: string; documents: unknown
     const documents = (engagement.documents as Document[]) || []
 
     // Find documents that need retry:
-    // 1. Stuck in 'in_progress' for > 5 minutes
+    // 1. Stuck in processing (downloading/extracting/classifying) for > 5 minutes
     // 2. Have PROCESSING_ERROR type (failed extraction/classification)
     const needsRetry = (doc: Document) => {
-      const isStuck = doc.processingStatus === 'in_progress' &&
+      const isProcessing = ['downloading', 'extracting', 'classifying'].includes(doc.processingStatus || '')
+      const isStuck = isProcessing &&
         doc.processingStartedAt &&
         doc.processingStartedAt < fiveMinutesAgo
       const hasError = doc.documentType === 'PROCESSING_ERROR'

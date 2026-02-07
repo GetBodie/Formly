@@ -107,7 +107,7 @@ describe('Cron Routes', () => {
       const fiveMinutesAgo = new Date(Date.now() - 6 * 60 * 1000).toISOString()
       const stuckDoc = createMockDocument({
         id: 'doc_stuck',
-        processingStatus: 'in_progress',
+        processingStatus: 'downloading',
         processingStartedAt: fiveMinutesAgo,
         documentType: 'PENDING',
       })

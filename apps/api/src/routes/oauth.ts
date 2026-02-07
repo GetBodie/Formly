@@ -160,7 +160,7 @@ oauth.get('/callback/:provider', async (c) => {
       return c.redirect(`${frontendUrl}/new?oauth_error=token_exchange_failed`)
     }
     
-    const tokens = await tokenResponse.json()
+    const tokens = await tokenResponse.json() as any
     
     // Create a temporary token ID for the frontend to use
     const tokenId = generateState()
@@ -212,7 +212,7 @@ oauth.post('/folders/:provider', async (c) => {
       
       if (!response.ok) throw new Error('Failed to list Dropbox folders')
       
-      const data = await response.json()
+      const data = await response.json() as any
       folders = data.entries
         .filter((entry: { '.tag': string }) => entry['.tag'] === 'folder')
         .map((entry: { id: string; name: string; path_display: string }) => ({
@@ -235,7 +235,7 @@ oauth.post('/folders/:provider', async (c) => {
       
       if (!response.ok) throw new Error('Failed to list Google Drive folders')
       
-      const data = await response.json()
+      const data = await response.json() as any
       folders = data.files.map((file: { id: string; name: string }) => ({
         id: file.id,
         name: file.name,
@@ -257,7 +257,7 @@ oauth.post('/folders/:provider', async (c) => {
       
       if (!response.ok) throw new Error('Failed to list SharePoint folders')
       
-      const data = await response.json()
+      const data = await response.json() as any
       folders = data.value.map((item: { id: string; name: string }) => ({
         id: item.id,
         name: item.name,
@@ -306,7 +306,7 @@ oauth.post('/folder-url/:provider', async (c) => {
         })
         
         if (response.ok) {
-          const data = await response.json()
+          const data = await response.json() as any
           folderUrl = data.url
         } else {
           // Link might already exist, try to get it
@@ -323,7 +323,7 @@ oauth.post('/folder-url/:provider', async (c) => {
           })
           
           if (getResponse.ok) {
-            const getData = await getResponse.json()
+            const getData = await getResponse.json() as any
             if (getData.links && getData.links.length > 0) {
               folderUrl = getData.links[0].url
             }
@@ -352,7 +352,7 @@ oauth.post('/folder-url/:provider', async (c) => {
       )
       
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json() as any
         folderUrl = data.webUrl
       }
     }

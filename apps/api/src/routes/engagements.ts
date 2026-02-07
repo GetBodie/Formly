@@ -254,7 +254,7 @@ app.post('/:id/process', async (c) => {
   const documents = (updated?.documents as Document[]) || []
 
   // Dispatch document_uploaded for any remaining PENDING docs
-  const pendingDocs = documents.filter(d => d.documentType === 'PENDING' && d.processingStatus !== 'in_progress')
+  const pendingDocs = documents.filter(d => d.documentType === 'PENDING' && !['downloading', 'extracting', 'classifying'].includes(d.processingStatus || ''))
   for (const doc of pendingDocs) {
     runInBackground(() => dispatch({
       type: 'document_uploaded',
@@ -316,12 +316,7 @@ app.delete('/:id', async (c) => {
     return c.json({ error: 'Engagement not found' }, 404)
   }
 
-  // Delete related records first (documents, etc.)
-  await prisma.document.deleteMany({
-    where: { engagementId: id }
-  })
-
-  // Delete the engagement
+  // Delete the engagement (documents are embedded in JSON, deleted automatically)
   await prisma.engagement.delete({
     where: { id }
   })
