@@ -82,18 +82,29 @@ export async function pollEngagement(engagement: {
       }
     })
 
-    // Dispatch document_uploaded events for each new file
-    for (const file of newFiles) {
-      const doc = existingDocs.find(d => d.storageItemId === file.id)
-      if (!doc) continue
-
-      await dispatch({
-        type: 'document_uploaded',
-        engagementId: engagement.id,
-        documentId: doc.id,
-        storageItemId: file.id,
-        fileName: file.name
+    // Dispatch document_uploaded events in parallel batches
+    // Process up to 5 documents concurrently to avoid rate limits
+    const BATCH_SIZE = 5
+    const docsToProcess = newFiles
+      .map(file => {
+        const doc = existingDocs.find(d => d.storageItemId === file.id)
+        return doc ? { file, doc } : null
       })
+      .filter((item): item is { file: typeof newFiles[0]; doc: Document } => item !== null)
+
+    for (let i = 0; i < docsToProcess.length; i += BATCH_SIZE) {
+      const batch = docsToProcess.slice(i, i + BATCH_SIZE)
+      await Promise.allSettled(
+        batch.map(({ file, doc }) =>
+          dispatch({
+            type: 'document_uploaded',
+            engagementId: engagement.id,
+            documentId: doc.id,
+            storageItemId: file.id,
+            fileName: file.name
+          })
+        )
+      )
     }
 
     console.log(`[POLL] ${engagement.id}: Dispatched ${newFiles.length} documents (${provider})`)
