@@ -35,6 +35,7 @@ export const DocumentSchema = z.object({
   // Processing state tracking for retry logic
   processingStatus: z.enum(['pending', 'downloading', 'extracting', 'classifying', 'classified', 'error']).optional(), // defaults to 'pending' if missing
   processingStartedAt: z.string().nullable().optional(), // ISO timestamp when processing started
+  retryCount: z.number().optional().default(0), // Number of processing attempts (max 3)
   // Document review fields
   approved: z.boolean().nullable().default(null), // null = not reviewed, true = approved
   approvedAt: z.string().nullable().default(null),

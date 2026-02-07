@@ -394,12 +394,69 @@ app.post(
   }
 )
 
+const MAX_RETRY_COUNT = 3
+
+// GET /api/engagements/:engagementId/documents/processing-status
+// Get processing status of all documents in an engagement
+app.get(
+  '/:engagementId/documents/processing-status',
+  async (c) => {
+    const { engagementId } = c.req.param()
+
+    const engagement = await prisma.engagement.findUnique({
+      where: { id: engagementId }
+    })
+    if (!engagement) {
+      return c.json({ error: 'Engagement not found' }, 404)
+    }
+
+    const documents = (engagement.documents as Document[]) || []
+    const now = Date.now()
+    const STUCK_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
+
+    const statuses = documents.map(doc => {
+      const startedAt = doc.processingStartedAt ? new Date(doc.processingStartedAt).getTime() : null
+      const processingDuration = startedAt ? now - startedAt : null
+      const isStuck = processingDuration !== null && processingDuration > STUCK_THRESHOLD_MS &&
+        ['downloading', 'extracting', 'classifying', 'pending'].includes(doc.processingStatus || 'pending')
+      
+      return {
+        id: doc.id,
+        fileName: doc.fileName,
+        documentType: doc.documentType,
+        processingStatus: doc.processingStatus || 'pending',
+        processingStartedAt: doc.processingStartedAt,
+        processingDurationMs: processingDuration,
+        retryCount: doc.retryCount || 0,
+        maxRetries: MAX_RETRY_COUNT,
+        isStuck,
+        canRetry: (doc.retryCount || 0) < MAX_RETRY_COUNT,
+        issues: doc.issues
+      }
+    })
+
+    const summary = {
+      total: documents.length,
+      pending: statuses.filter(s => s.processingStatus === 'pending').length,
+      processing: statuses.filter(s => ['downloading', 'extracting', 'classifying'].includes(s.processingStatus)).length,
+      classified: statuses.filter(s => s.processingStatus === 'classified').length,
+      error: statuses.filter(s => s.processingStatus === 'error').length,
+      stuck: statuses.filter(s => s.isStuck).length
+    }
+
+    return c.json({ summary, documents: statuses })
+  }
+)
+
 // POST /api/engagements/:engagementId/documents/:docId/retry
 // Retry processing a document that failed
+// Query params:
+//   ?force=true - Reset retry count and force retry even if at max attempts
 app.post(
   '/:engagementId/documents/:docId/retry',
   async (c) => {
     const { engagementId, docId } = c.req.param()
+    const forceRetry = c.req.query('force') === 'true'
 
     const engagement = await prisma.engagement.findUnique({
       where: { id: engagementId }
@@ -415,6 +472,16 @@ app.post(
     }
 
     const doc = documents[docIndex]
+    const retryCount = doc.retryCount || 0
+
+    // Check if document has exceeded max retries
+    if (retryCount >= MAX_RETRY_COUNT && !forceRetry) {
+      return c.json({ 
+        error: `Document has exceeded max retry attempts (${MAX_RETRY_COUNT}). Use ?force=true to reset and retry.`,
+        retryCount,
+        maxRetries: MAX_RETRY_COUNT
+      }, 400)
+    }
 
     // Reset document to pending state for reprocessing
     documents[docIndex] = {
@@ -425,7 +492,8 @@ app.post(
       confidence: 0,
       issues: [],
       issueDetails: null,
-      classifiedAt: null
+      classifiedAt: null,
+      retryCount: forceRetry ? 0 : retryCount // Reset if forced, otherwise keep count
     }
 
     await prisma.engagement.update({
@@ -442,7 +510,12 @@ app.post(
       fileName: doc.fileName
     }).catch(err => console.error('[RETRY] Assessment failed:', err))
 
-    return c.json({ success: true, document: documents[docIndex] })
+    return c.json({ 
+      success: true, 
+      document: documents[docIndex],
+      forced: forceRetry,
+      previousRetryCount: retryCount
+    })
   }
 )
 
