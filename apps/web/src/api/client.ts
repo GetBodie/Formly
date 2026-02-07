@@ -126,6 +126,12 @@ export async function createEngagement(data: CreateEngagementData): Promise<Enga
   })
 }
 
+export async function deleteEngagement(id: string): Promise<{ message: string }> {
+  return fetchApi(`/api/engagements/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function generateBrief(id: string): Promise<{ success: boolean; brief: string }> {
   return fetchApi(`/api/engagements/${id}/brief`, {
     method: 'POST',
