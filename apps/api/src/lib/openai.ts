@@ -4,7 +4,12 @@ import { z } from 'zod'
 import { ChecklistItemSchema, type ChecklistItem, type Document } from '../types.js'
 
 const openai = new OpenAI()
-const MODEL = 'gpt-4o-2024-08-06'
+
+// Use mini model for classification (faster, cheaper, good enough for doc types)
+const MODEL_FULL = 'gpt-4o-2024-08-06'
+const MODEL_FAST = 'gpt-4o-mini'
+const USE_FAST_MODEL = process.env.USE_FAST_MODEL !== 'false'
+const MODEL = USE_FAST_MODEL ? MODEL_FAST : MODEL_FULL
 
 export async function generateChecklist(intakeData: unknown, taxYear: number): Promise<ChecklistItem[]> {
   const response = await openai.chat.completions.parse({

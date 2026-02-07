@@ -2,7 +2,21 @@ import { prisma } from '../prisma.js'
 import { classifyDocument as classifyWithOpenAI } from '../openai.js'
 import { getStorageClient, type StorageProvider } from '../storage/index.js'
 import { extractDocument, isSupportedFileType } from '../document-extraction.js'
+import { createHash } from 'crypto'
 import type { Document } from '../../types.js'
+
+// In-memory cache for file checksums → classification results
+// Survives across requests within same process (cleared on restart)
+const classificationCache = new Map<string, {
+  documentType: string
+  confidence: number
+  taxYear: number | null
+  issues: string[]
+}>()
+
+function getFileChecksum(buffer: Buffer): string {
+  return createHash('sha256').update(buffer).digest('hex').slice(0, 16)
+}
 
 /**
  * Fast document assessment - direct function calls, no agent overhead.
@@ -55,6 +69,35 @@ export async function runAssessmentFast(context: {
       throw new Error(`Unsupported file type: ${mimeType}`)
     }
 
+    // Check cache by file checksum (skip OCR + classification for duplicates)
+    const checksum = getFileChecksum(buffer)
+    const cached = classificationCache.get(checksum)
+    
+    if (cached) {
+      console.log(`[FAST] Cache hit for ${fileName} (${checksum})`)
+      
+      documents[docIndex] = {
+        ...documents[docIndex],
+        documentType: cached.documentType,
+        confidence: cached.confidence,
+        taxYear: cached.taxYear,
+        issues: cached.issues,
+        classifiedAt: new Date().toISOString(),
+        processingStatus: 'classified',
+        processingStartedAt: null
+      }
+
+      await prisma.engagement.update({
+        where: { id: engagementId },
+        data: { documents, lastActivityAt: new Date() }
+      })
+
+      return {
+        hasIssues: cached.issues.length > 0,
+        documentType: cached.documentType
+      }
+    }
+
     // 2. OCR extraction (update status in memory, not DB)
     documents[docIndex].processingStatus = 'extracting'
     
@@ -73,7 +116,15 @@ export async function runAssessmentFast(context: {
       engagement.taxYear
     )
     
-    console.log(`[FAST] Classified ${fileName}: ${classification.documentType} (${Math.round(classification.confidence * 100)}%)`)
+    // Cache the result
+    classificationCache.set(checksum, {
+      documentType: classification.documentType,
+      confidence: classification.confidence,
+      taxYear: classification.taxYear,
+      issues: classification.issues
+    })
+    
+    console.log(`[FAST] Classified ${fileName}: ${classification.documentType} (${Math.round(classification.confidence * 100)}%) [cached]`)
 
     // 4. Single DB write with all updates
     documents[docIndex] = {

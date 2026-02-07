@@ -82,8 +82,9 @@ export async function pollEngagement(engagement: {
       }
     })
 
-    // Dispatch document_uploaded events in parallel batches (5 concurrent)
-    const BATCH_SIZE = 5
+    // Dispatch document_uploaded events in parallel batches
+    // Higher concurrency is safe with fast path + caching
+    const BATCH_SIZE = parseInt(process.env.DOC_BATCH_SIZE || '10', 10)
     const docsToProcess = newFiles
       .map(file => {
         const doc = existingDocs.find(d => d.storageItemId === file.id)
