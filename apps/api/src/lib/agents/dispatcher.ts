@@ -1,5 +1,9 @@
 import { runAssessmentAgent, type AssessmentTrigger } from './assessment.js'
+import { runAssessmentFast } from './assessment-fast.js'
 import { runReconciliationAgent, type ReconciliationTrigger } from './reconciliation.js'
+
+// Use fast path by default (no Claude agent overhead)
+const USE_FAST_ASSESSMENT = process.env.USE_FAST_ASSESSMENT !== 'false'
 import { sendEmail, emailTemplates } from '../email.js'
 import { prisma } from '../prisma.js'
 import type { ChecklistItem } from '../../types.js'
@@ -29,14 +33,21 @@ export async function dispatch(event: AgentEvent): Promise<void> {
       break
 
     case 'document_uploaded':
-      // Assessment Agent processes the document
-      const assessmentResult = await runAssessmentAgent({
-        trigger: 'document_uploaded',
-        engagementId: event.engagementId,
-        documentId: event.documentId,
-        storageItemId: event.storageItemId,
-        fileName: event.fileName
-      })
+      // Use fast assessment by default (no Claude agent overhead)
+      const assessmentResult = USE_FAST_ASSESSMENT
+        ? await runAssessmentFast({
+            engagementId: event.engagementId,
+            documentId: event.documentId,
+            storageItemId: event.storageItemId,
+            fileName: event.fileName
+          })
+        : await runAssessmentAgent({
+            trigger: 'document_uploaded',
+            engagementId: event.engagementId,
+            documentId: event.documentId,
+            storageItemId: event.storageItemId,
+            fileName: event.fileName
+          })
 
       // Chain to reconciliation after assessment
       await dispatch({
