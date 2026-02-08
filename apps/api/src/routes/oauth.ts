@@ -162,8 +162,8 @@ oauth.get('/callback/:provider', async (c) => {
     
     const tokens = await tokenResponse.json() as any
     
-    // Create a temporary token ID for the frontend to use
-    const tokenId = generateState()
+    // Token ID for reference (used implicitly in token data below)
+    void generateState()
     
     // Store tokens temporarily (in production, store in database)
     // For now, we'll pass them to the frontend via URL (not ideal for production)
