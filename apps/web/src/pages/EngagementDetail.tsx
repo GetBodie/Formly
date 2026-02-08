@@ -288,7 +288,7 @@ export default function EngagementDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-gray-500">Loading...</div>
       </div>
     )
@@ -296,7 +296,7 @@ export default function EngagementDetail() {
 
   if (error && !engagement) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-red-600">Error: {error || 'Engagement not found'}</div>
       </div>
     )
@@ -304,7 +304,7 @@ export default function EngagementDetail() {
 
   if (!engagement) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-red-600">Engagement not found</div>
       </div>
     )
@@ -321,8 +321,8 @@ export default function EngagementDetail() {
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-[1200px] mx-auto px-6 py-6">
+    <div className="min-h-screen bg-white">
+      <div className="px-[160px] pt-[60px]">
         {/* Error banner */}
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm flex items-center justify-between">
@@ -334,61 +334,69 @@ export default function EngagementDetail() {
         )}
 
         {/* Back button */}
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 mb-5">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
           Back to Dashboard
         </Link>
 
         {/* Header Section */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{engagement.clientName}</h1>
-            <div className="flex items-center gap-[60px] mt-3">
-              <div>
-                <div className="text-xs text-gray-500">Email</div>
-                <div className="text-sm font-medium">{engagement.clientEmail}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Tax Year</div>
-                <div className="text-sm font-medium">{engagement.taxYear}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Status</div>
-                <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[engagement.status]}`}>
-                  {engagement.status.replace(/_/g, ' ')}
-                </span>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Storage</div>
-                <a
-                  href={engagement.storageFolderUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium inline-flex items-center gap-1.5 hover:text-blue-600"
-                >
-                  {storageIcon(engagement.storageProvider)}
-                  {engagement.storageProvider}
-                </a>
-              </div>
-            </div>
-          </div>
-          {engagement.status === 'READY' && (
+        <div className="flex items-center justify-between mt-3 mb-3">
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{engagement.clientName}</h1>
+          <div className="flex items-center gap-2">
             <button
-              onClick={openPrepBrief}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={handleCheckForDocs}
+              disabled={checkingForDocs}
+              className="inline-flex items-center gap-1.5 h-8 px-3 border border-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
-              View Prep Brief
+              {checkingForDocs ? 'Checking...' : 'Check for Docs'}
             </button>
-          )}
+            {engagement.status === 'READY' && (
+              <button
+                onClick={openPrepBrief}
+                className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#042f84] text-white text-sm font-medium rounded-lg hover:bg-[#03246a] transition-colors"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                View Prep Brief
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-[60px] mb-6">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-500">Email</div>
+            <div className="text-base font-medium">{engagement.clientEmail}</div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-500">Tax Year</div>
+            <div className="text-base font-medium">{engagement.taxYear}</div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-500">Status</div>
+            <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium ${statusColors[engagement.status]}`}>
+              {engagement.status.replace(/_/g, ' ')}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-gray-500">Storage</div>
+            <a
+              href={engagement.storageFolderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium inline-flex items-center gap-2 text-blue-500 hover:text-blue-600"
+            >
+              {storageIcon(engagement.storageProvider)}
+              {engagement.storageProvider}
+            </a>
+          </div>
         </div>
 
         {/* 3 Stat Tiles */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="flex gap-4 mb-6">
           {/* Documents Received */}
-          <div className="border border-gray-200 rounded-lg p-3 bg-white h-[96px] flex flex-col justify-between">
-            <div className="text-sm text-gray-700">Documents Received</div>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl font-semibold">{completionPct}%</span>
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-3 bg-white h-[96px] flex flex-col gap-2">
+            <div className="text-sm text-gray-500">Documents Received</div>
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-2xl font-semibold tracking-tight">{completionPct}%</span>
               <div className="flex-1">
                 <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
                   <div
@@ -401,59 +409,34 @@ export default function EngagementDetail() {
           </div>
 
           {/* Docs Requiring Attention */}
-          <div className="border border-gray-200 rounded-lg p-3 bg-white h-[96px] flex flex-col justify-between">
-            <div className="text-sm text-gray-700">Docs Requiring Attention</div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="w-3 h-3 rounded-sm bg-red-500 inline-block flex-shrink-0" />
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-3 bg-white h-[96px] flex flex-col gap-2">
+            <div className="text-sm text-gray-500">Docs Requiring Attention</div>
+            <div className="flex flex-col gap-1 justify-center flex-1">
+              <div className="flex items-center gap-1 text-sm">
+                <span className="w-3 h-3 rounded-sm bg-red-600 inline-block flex-shrink-0" />
                 <span>{errorDocs.length} Needs Action</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="w-3 h-3 rounded-sm bg-amber-500 inline-block flex-shrink-0" />
+              <div className="flex items-center gap-1 text-sm">
+                <span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block flex-shrink-0" />
                 <span>{warningDocs.length} Needs Review</span>
               </div>
             </div>
           </div>
 
           {/* Time Saved */}
-          <div className="border border-gray-200 rounded-lg p-3 bg-white h-[96px] flex flex-col justify-between">
-            <div className="text-sm text-gray-700">Time Saved</div>
-            <div className="text-2xl font-semibold">{timeSaved}hrs</div>
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-3 bg-white h-[96px] flex flex-col gap-2">
+            <div className="text-sm text-gray-500">Time Saved</div>
+            <div className="text-2xl font-semibold tracking-tight flex-1 flex items-center">{timeSaved}hrs</div>
           </div>
         </div>
 
         {/* Split Panel */}
-        <div className="flex gap-0">
+        <div className="flex gap-[3px]">
           {/* Left: Document Table */}
-          <div className="flex-1 max-w-[705px] bg-white border border-gray-200 rounded-l-lg overflow-hidden">
-            {/* Table Controls */}
-            <div className="px-4 py-3 border-b flex items-center justify-between bg-gray-50">
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm font-semibold text-gray-900">Documents ({visibleDocuments.length})</h2>
-                {allDocuments.filter(d => d.archived).length > 0 && (
-                  <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showArchived}
-                      onChange={(e) => setShowArchived(e.target.checked)}
-                      className="rounded"
-                    />
-                    Show archived
-                  </label>
-                )}
-              </div>
-              <button
-                onClick={handleCheckForDocs}
-                disabled={checkingForDocs}
-                className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {checkingForDocs ? 'Checking...' : 'Check for Docs'}
-              </button>
-            </div>
-
+          <div className="flex-1 border border-[#e5e5e5] rounded-lg overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-[200px_200px_1fr] text-xs text-gray-500 font-medium px-4 py-2 border-b bg-gray-50">
-              <div>Name</div>
+            <div className="grid grid-cols-[200px_200px_1fr] text-sm font-medium text-gray-900 px-2 py-2 bg-gray-50">
+              <div>Document</div>
               <div>Status</div>
               <div>Uploaded at</div>
             </div>
@@ -475,32 +458,32 @@ export default function EngagementDetail() {
                         setSelectedDocId(doc.id)
                         setExpandedIssueIdx(0)
                       }}
-                      className={`w-full grid grid-cols-[200px_200px_1fr] items-center px-4 h-[42px] text-sm border-b transition-colors text-left ${
-                        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      className={`w-full grid grid-cols-[200px_200px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
+                        isSelected ? 'bg-black/5' : 'hover:bg-gray-50'
                       } ${doc.archived ? 'opacity-50' : ''}`}
                     >
-                      <div className={`truncate font-medium ${doc.archived ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      <div className={`truncate ${doc.archived ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                         {doc.documentType}
                       </div>
                       <div>
                         {status === 'error' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-100 text-red-600 border border-[#e5e5e5]">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                             Needs Action
                           </span>
                         ) : status === 'warning' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-yellow-100 text-yellow-700 border border-[#e5e5e5]">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                             Needs Review
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-100 text-green-900 border border-[#e5e5e5]">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5" /></svg>
                             OK
                           </span>
                         )}
                       </div>
-                      <div className="text-gray-500 text-xs">{formatDate(doc.classifiedAt)}</div>
+                      <div className="text-gray-900 text-sm">{formatDate(doc.classifiedAt)}</div>
                     </button>
                   )
                 })
@@ -509,14 +492,14 @@ export default function EngagementDetail() {
           </div>
 
           {/* Chevron Separator */}
-          <div className="w-6 flex-shrink-0 flex items-start justify-center bg-white border-y border-gray-200 pt-[44px]">
-            <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="flex-shrink-0 flex items-start justify-center pt-[44px]">
+            <svg className="w-6 h-6 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 18l6-6-6-6" />
             </svg>
           </div>
 
           {/* Right: Document Detail Panel */}
-          <div className="w-[457px] flex-shrink-0 bg-white border border-gray-200 rounded-r-lg overflow-hidden">
+          <div className="w-[457px] flex-shrink-0 bg-white border border-[#e5e5e5] rounded-lg shadow-sm overflow-hidden">
             {selectedDoc ? (
               <DocumentPanel
                 key={selectedDoc.id}
@@ -692,9 +675,9 @@ function DocumentPanel({
   }))
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full py-4">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+      <div className="flex items-center justify-between px-4">
         <h2 className="text-base font-semibold text-gray-900">Document Detail</h2>
         <button
           onClick={onClose}
@@ -739,38 +722,38 @@ function DocumentPanel({
         )}
 
         {/* Info section */}
-        <div className="px-4 mt-2.5">
+        <div className="px-4 mt-2 flex flex-col gap-3">
           {/* Row 1: 3 items */}
-          <div className="grid grid-cols-3 gap-4 mb-3">
-            <div>
-              <div className="text-xs text-gray-500">Uploaded file</div>
-              <div className="text-sm text-gray-900 truncate">{doc.fileName}</div>
+          <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-1">
+              <div className="text-sm text-gray-500">Uploaded file</div>
+              <div className="text-sm text-black truncate">{doc.fileName}</div>
             </div>
-            <div>
-              <div className="text-xs text-gray-500">System Detected</div>
-              <div className="text-sm text-gray-900">{doc.documentType}</div>
+            <div className="flex flex-col gap-1">
+              <div className="text-sm text-gray-500">System Detected</div>
+              <div className="text-sm text-black">{doc.documentType}</div>
             </div>
-            <div>
-              <div className="text-xs text-gray-500">Confidence</div>
-              <div className="text-sm text-gray-900">{Math.round(doc.confidence * 100)}%</div>
+            <div className="flex flex-col gap-1">
+              <div className="text-sm text-gray-500">Confidence</div>
+              <div className="text-sm text-black">{Math.round(doc.confidence * 100)}%</div>
             </div>
           </div>
           {/* Row 2: 2 items */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-xs text-gray-500">Tax Year</div>
-              <div className="text-sm text-gray-900">{doc.taxYear || 'Unknown'}</div>
+          <div className="flex items-start gap-[49px]">
+            <div className="flex flex-col gap-1 w-[145px]">
+              <div className="text-sm text-gray-500">Tax Year</div>
+              <div className="text-sm text-black">{doc.taxYear || 'Unknown'}</div>
             </div>
-            <div>
-              <div className="text-xs text-gray-500">Status</div>
-              <div className="text-sm text-gray-900">
+            <div className="flex flex-col gap-1 flex-1">
+              <div className="text-sm text-gray-500">Status</div>
+              <div className="text-sm text-gray-700">
                 {doc.approved ? 'Approved' : 'Pending Review'}
               </div>
             </div>
             {doc.override && (
-              <div>
-                <div className="text-xs text-gray-500">Reclassified</div>
-                <div className="text-sm text-gray-900">from {doc.override.originalType}</div>
+              <div className="flex flex-col gap-1">
+                <div className="text-sm text-gray-500">Reclassified</div>
+                <div className="text-sm text-black">from {doc.override.originalType}</div>
               </div>
             )}
           </div>
@@ -808,11 +791,11 @@ function DocumentPanel({
 
         {/* Issues section */}
         {friendlyIssues.length > 0 && (
-          <div className="px-4 mt-4">
-            <div className="flex items-center justify-between mb-2">
+          <div className="mt-8">
+            <div className="flex items-center justify-between px-4 mb-2">
               <h3 className="text-base font-semibold text-gray-900">Issues</h3>
               {friendlyIssues.length > 2 && (
-                <button className="text-sm text-blue-600 hover:text-blue-800">See All</button>
+                <button className="text-sm font-medium text-blue-500 hover:text-blue-600">See All</button>
               )}
             </div>
 
@@ -821,17 +804,15 @@ function DocumentPanel({
                 const isExpanded = expandedIssueIdx === idx
                 return (
                   <div key={idx}>
-                    {idx > 0 && <div className="h-px bg-gray-200" />}
+                    <div className="h-px bg-[#e5e5e5]" />
                     <button
                       onClick={() => setExpandedIssueIdx(isExpanded ? -1 : idx)}
-                      className="w-full flex items-center gap-2 py-2.5 text-left"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-left"
                     >
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        issue.severity === 'error' ? 'bg-red-500' : 'bg-yellow-500'
-                      }`} />
-                      <span className="text-sm text-gray-900 flex-1 truncate">{issue.friendlyMessage}</span>
+                      <svg className="w-4 h-4 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                      <span className="text-sm font-medium text-gray-900 flex-1">{issue.friendlyMessage}</span>
                       <svg
-                        className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        className={`w-6 h-6 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -841,16 +822,21 @@ function DocumentPanel({
                       </svg>
                     </button>
                     {isExpanded && (
-                      <div className="pb-3 pl-4">
-                        <div className="text-xs text-gray-500 mb-1">Issue Description</div>
-                        <div className="text-sm text-gray-700 mb-2">{issue.original || issue.friendlyMessage}</div>
-                        <div className="text-xs text-gray-500 mb-1">Recommended Action</div>
-                        <div className="text-sm text-gray-700">{issue.suggestedAction}</div>
+                      <div className="pl-[36px] pr-4 pb-4 flex flex-col gap-4">
+                        <div className="flex flex-col gap-1">
+                          <div className="text-sm text-gray-500">Issue Description</div>
+                          <div className="text-sm text-black">{issue.original || issue.friendlyMessage}</div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <div className="text-sm text-gray-500">Recommended Action</div>
+                          <div className="text-sm text-black">{issue.suggestedAction}</div>
+                        </div>
                       </div>
                     )}
                   </div>
                 )
               })}
+              <div className="h-px bg-[#e5e5e5]" />
             </div>
           </div>
         )}
@@ -871,11 +857,11 @@ function DocumentPanel({
 
       {/* Action buttons at bottom */}
       {hasUnresolvedIssues && !doc.archived && (
-        <div className="px-4 py-3 border-t flex gap-2 justify-end">
+        <div className="px-4 flex gap-2 justify-end">
           <button
             onClick={() => onApprove(doc.id)}
             disabled={actionInProgress !== null}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 h-8 px-3 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
             {actionInProgress === 'approve' ? 'Approving...' : 'Approve Anyway'}
@@ -883,7 +869,7 @@ function DocumentPanel({
           <button
             onClick={() => onOpenEmail(doc.id)}
             disabled={actionInProgress !== null}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
             Generate Email Follow-Up
