@@ -7,7 +7,6 @@ import {
   approveDocument,
   reclassifyDocument,
   sendDocumentFollowUp,
-  processEngagement,
   retryDocument,
   archiveDocument,
   unarchiveDocument,
@@ -87,7 +86,6 @@ export default function EngagementDetail() {
   const [error, setError] = useState<string | null>(null)
   const [generatingBrief, setGeneratingBrief] = useState(false)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
-  const [checkingForDocs, setCheckingForDocs] = useState(false)
   const [showArchived] = useState(false)
   const [showPrepBrief, setShowPrepBrief] = useState(false)
   const [selectedDocId, setSelectedDocId] = useState<string | null>(searchParams.get('doc'))
@@ -194,20 +192,6 @@ export default function EngagementDetail() {
     }
   }
 
-  async function handleCheckForDocs() {
-    if (!id || !engagement) return
-
-    setCheckingForDocs(true)
-    try {
-      await processEngagement(id)
-      const updated = await getEngagement(id)
-      setEngagement(updated)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to check for documents')
-    } finally {
-      setCheckingForDocs(false)
-    }
-  }
 
   async function handleRetryDocument(docId: string) {
     if (!id || !engagement) return
@@ -343,13 +327,6 @@ export default function EngagementDetail() {
         <div className="flex items-center justify-between mt-3 mb-3">
           <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{engagement.clientName}</h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleCheckForDocs}
-              disabled={checkingForDocs}
-              className="inline-flex items-center gap-1.5 h-8 px-3 border border-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              {checkingForDocs ? 'Checking...' : 'Check for Docs'}
-            </button>
             {engagement.status === 'READY' && (
               <button
                 onClick={openPrepBrief}
@@ -445,7 +422,7 @@ export default function EngagementDetail() {
             <div className="overflow-y-auto max-h-[500px]">
               {visibleDocuments.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 text-sm">
-                  No documents yet. Click "Check for Docs" to scan storage.
+                  No documents yet.
                 </div>
               ) : (
                 visibleDocuments.map(doc => {
@@ -860,7 +837,7 @@ function DocumentPanel({
 
       {/* Action buttons at bottom */}
       {hasUnresolvedIssues && !doc.archived && (
-        <div className="px-4 flex gap-2 justify-end">
+        <div className="px-4 py-3 flex gap-2 justify-end">
           <button
             onClick={() => onApprove(doc.id)}
             disabled={actionInProgress !== null}
