@@ -143,23 +143,19 @@ export default function EngagementDetail() {
     }
   }
 
+  async function refetchEngagement() {
+    if (!id) return
+    const updated = await getEngagement(id)
+    setEngagement(updated)
+  }
+
   async function handleApproveDocument(docId: string) {
     if (!id || !engagement) return
 
     setActionInProgress('approve')
     try {
-      const result = await approveDocument(id, docId)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
-      // Refetch after reconciliation runs (async on server) to pick up status changes
-      setTimeout(async () => {
-        try {
-          const updated = await getEngagement(id)
-          setEngagement(updated)
-        } catch { /* ignore */ }
-      }, 2000)
+      await approveDocument(id, docId)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve document')
     } finally {
@@ -172,11 +168,8 @@ export default function EngagementDetail() {
 
     setActionInProgress('reclassify')
     try {
-      const result = await reclassifyDocument(id, docId, newType)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await reclassifyDocument(id, docId, newType)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reclassify document')
     } finally {
@@ -205,11 +198,8 @@ export default function EngagementDetail() {
 
     setActionInProgress('retry')
     try {
-      const result = await retryDocument(id, docId)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await retryDocument(id, docId)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to retry document')
     } finally {
@@ -222,11 +212,8 @@ export default function EngagementDetail() {
 
     setActionInProgress('archive')
     try {
-      const result = await archiveDocument(id, docId, reason)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await archiveDocument(id, docId, reason)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to archive document')
     } finally {
@@ -239,11 +226,8 @@ export default function EngagementDetail() {
 
     setActionInProgress('unarchive')
     try {
-      const result = await unarchiveDocument(id, docId)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await unarchiveDocument(id, docId)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to restore document')
     } finally {
