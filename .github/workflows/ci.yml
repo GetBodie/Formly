@@ -30,6 +30,10 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: apps/api
+      
+      - name: Run tests
+        run: npm test
+        working-directory: apps/api
 
   build-web:
     runs-on: ubuntu-latest
