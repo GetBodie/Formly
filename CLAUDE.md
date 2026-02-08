@@ -419,6 +419,37 @@ try {
 }
 ```
 
+### OAuth Setup (Render / Production)
+
+The app supports OAuth for Dropbox, Google Drive, and SharePoint. The flow is:
+1. Frontend calls `GET /api/oauth/auth/:provider` → gets auth URL
+2. User authenticates with provider → redirected to `GET /api/oauth/callback/:provider`
+3. Callback exchanges code for tokens → redirects to frontend with token data
+
+**Required env vars** (set in Render dashboard):
+- `API_URL` — full URL of the API service (e.g., `https://tax-agent-api.onrender.com`). Used to build OAuth callback URLs.
+- `FRONTEND_URL` — full URL of the web service (e.g., `https://tax-agent-web.onrender.com`). Used for post-auth redirects.
+- Provider credentials (per provider):
+  - **Dropbox**: `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`
+  - **Google Drive**: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
+  - **SharePoint**: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`
+
+**Register redirect URIs** in each provider's developer console:
+
+| Provider | Console | Redirect URI |
+|----------|---------|--------------|
+| Dropbox | [App Console](https://www.dropbox.com/developers/apps) → OAuth 2 | `{API_URL}/api/oauth/callback/dropbox` |
+| Google | [Cloud Console](https://console.cloud.google.com) → Credentials | `{API_URL}/api/oauth/callback/google-drive` |
+| SharePoint | Azure AD → App Registrations | `{API_URL}/api/oauth/callback/sharepoint` |
+
+**Local development**: Add `http://localhost:3009/api/oauth/callback/{provider}` as an additional redirect URI.
+
+### Scheduler Architecture
+
+The scheduler (`scheduler.ts`) calls business logic directly via imports — not through HTTP self-requests. The cron HTTP endpoints (`routes/cron.ts`) are kept for manual/diagnostic use only:
+- `GET /api/cron/stuck-documents` — inspect stuck docs
+- `POST /api/cron/retry-stuck?force=true` — force-retry failures
+
 ### Vitest Mocking Patterns
 
 **Always use both clear and reset in beforeEach**:

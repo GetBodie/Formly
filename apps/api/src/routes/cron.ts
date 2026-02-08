@@ -193,7 +193,7 @@ app.post('/retry-stuck', async (c) => {
 
 // Retry documents stuck in processing status for > 5 minutes OR with PROCESSING_ERROR
 // Respects max retry count (3 attempts) to prevent infinite retry loops
-async function retryStuckDocuments(engagements: { id: string; documents: unknown }[]): Promise<{ retried: number; permanentlyFailed: number }> {
+export async function retryStuckDocuments(engagements: { id: string; documents: unknown }[]): Promise<{ retried: number; permanentlyFailed: number }> {
   const fiveMinutesAgo = new Date(Date.now() - STUCK_THRESHOLD_MS).toISOString()
   let retriedCount = 0
   let permanentlyFailedCount = 0

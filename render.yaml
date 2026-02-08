@@ -25,11 +25,16 @@ services:
         value: production
       - key: ENABLE_SCHEDULER
         value: "true"
+      - key: API_URL
+        fromService:
+          name: tax-agent-api
+          type: web
+          property: hostURL
       - key: FRONTEND_URL
         fromService:
           name: tax-agent-web
           type: web
-          property: host
+          property: hostURL
       # Required API keys - set these manually in Render dashboard
       - key: OPENAI_API_KEY
         sync: false
@@ -63,6 +68,10 @@ services:
       - key: DROPBOX_ACCESS_TOKEN
         sync: false
       - key: DROPBOX_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
         sync: false
 
   # Web Frontend

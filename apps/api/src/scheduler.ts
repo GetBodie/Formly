@@ -1,26 +1,32 @@
 import cron from 'node-cron'
+import { prisma } from './lib/prisma.js'
+import { pollEngagement } from './lib/poll-engagement.js'
+import { dispatch } from './lib/agents/dispatcher.js'
+import { retryStuckDocuments } from './routes/cron.js'
+import { runInBackground, runAllInBackground } from './workers/background.js'
 
 /**
  * Initialize scheduled tasks for the API server.
- * Uses node-cron for in-process scheduling (Railway containers persist).
+ * Calls business logic directly instead of going through HTTP.
  */
 export function initScheduler() {
-  const cronSecret = process.env.CRON_SECRET
-  const apiUrl = process.env.API_URL || 'http://localhost:3009'
-
-  if (!cronSecret) {
-    console.warn('[SCHEDULER] CRON_SECRET not set, scheduled tasks will fail auth')
-  }
-
   // Poll storage for new documents every 2 minutes
   cron.schedule('*/2 * * * *', async () => {
     console.log('[SCHEDULER] Running poll-storage job')
     try {
-      const response = await fetch(`${apiUrl}/api/cron/poll-storage`, {
-        headers: { Authorization: `Bearer ${cronSecret}` }
+      const engagements = await prisma.engagement.findMany({
+        where: { status: { in: ['INTAKE_DONE', 'COLLECTING'] } },
       })
-      const result = await response.json()
-      console.log('[SCHEDULER] poll-storage result:', result)
+
+      runAllInBackground(engagements.map(engagement => () => pollEngagement(engagement)))
+
+      const stuckResult = await retryStuckDocuments(engagements)
+
+      console.log('[SCHEDULER] poll-storage result:', {
+        queued: engagements.length,
+        retriedStuck: stuckResult.retried,
+        permanentlyFailed: stuckResult.permanentlyFailed,
+      })
     } catch (error) {
       console.error('[SCHEDULER] poll-storage error:', error)
     }
@@ -30,11 +36,27 @@ export function initScheduler() {
   cron.schedule('0 9 * * *', async () => {
     console.log('[SCHEDULER] Running check-reminders job')
     try {
-      const response = await fetch(`${apiUrl}/api/cron/check-reminders`, {
-        headers: { Authorization: `Bearer ${cronSecret}` }
+      const threeDaysAgo = new Date()
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+
+      const staleEngagements = await prisma.engagement.findMany({
+        where: {
+          status: { in: ['INTAKE_DONE', 'COLLECTING'] },
+          lastActivityAt: { lt: threeDaysAgo },
+          reminderCount: { lt: 5 },
+        },
       })
-      const result = await response.json()
-      console.log('[SCHEDULER] check-reminders result:', result)
+
+      for (const engagement of staleEngagements) {
+        runInBackground(() => dispatch({
+          type: 'stale_engagement',
+          engagementId: engagement.id,
+        }))
+      }
+
+      console.log('[SCHEDULER] check-reminders result:', {
+        checked: staleEngagements.length,
+      })
     } catch (error) {
       console.error('[SCHEDULER] check-reminders error:', error)
     }
