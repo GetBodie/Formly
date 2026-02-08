@@ -6,7 +6,7 @@ import cron from 'node-cron'
  */
 export function initScheduler() {
   const cronSecret = process.env.CRON_SECRET
-  const apiUrl = process.env.API_URL || 'http://localhost:3001'
+  const apiUrl = process.env.API_URL || 'http://localhost:3009'
 
   if (!cronSecret) {
     console.warn('[SCHEDULER] CRON_SECRET not set, scheduled tasks will fail auth')
