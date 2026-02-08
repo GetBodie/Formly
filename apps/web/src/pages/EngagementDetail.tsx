@@ -153,6 +153,13 @@ export default function EngagementDetail() {
         d.id === docId ? result.document : d
       )
       setEngagement({ ...engagement, documents })
+      // Refetch after reconciliation runs (async on server) to pick up status changes
+      setTimeout(async () => {
+        try {
+          const updated = await getEngagement(id)
+          setEngagement(updated)
+        } catch { /* ignore */ }
+      }, 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve document')
     } finally {
