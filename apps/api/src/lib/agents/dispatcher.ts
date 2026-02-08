@@ -29,7 +29,7 @@ export async function dispatch(event: AgentEvent): Promise<void> {
       await sendUploadInstructions(event.engagementId)
       break
 
-    case 'document_uploaded':
+    case 'document_uploaded': {
       // Always use fast assessment (no Claude agent overhead)
       const assessmentResult = await runAssessmentFast({
         engagementId: event.engagementId,
@@ -47,6 +47,7 @@ export async function dispatch(event: AgentEvent): Promise<void> {
         hasIssues: assessmentResult.hasIssues
       })
       break
+    }
 
     case 'document_assessed':
       if (event.hasIssues) {
@@ -72,7 +73,7 @@ export async function dispatch(event: AgentEvent): Promise<void> {
       console.log(`[DISPATCHER] Stale engagement ${event.engagementId}, skipping reminder for now`)
       break
 
-    case 'check_completion':
+    case 'check_completion': {
       // Reconciliation Agent checks if ready
       const checkResult = await runReconciliationAgent({
         trigger: 'check_completion',
@@ -83,6 +84,7 @@ export async function dispatch(event: AgentEvent): Promise<void> {
         await sendCompletionEmails(event.engagementId)
       }
       break
+    }
 
     default:
       console.warn(`[DISPATCHER] Unknown event type: ${(event as { type: string }).type}`)

@@ -39,6 +39,10 @@ export function createMockDocument(overrides: Partial<Document> = {}): Document 
     approved: null,
     approvedAt: null,
     override: null,
+    archived: false,
+    archivedAt: null,
+    archivedReason: null,
+    retryCount: 0,
     ...overrides,
   }
 }
