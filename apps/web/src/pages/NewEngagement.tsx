@@ -272,20 +272,24 @@ export default function NewEngagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="mb-6">
-          <Link to="/" className="text-blue-600 hover:underline">
-            &larr; Back to Dashboard
-          </Link>
-        </div>
+    <div className="min-h-screen bg-white px-[160px] pt-[60px]">
+      {/* Back button */}
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+        Back to Dashboard
+      </Link>
 
-        <div className="bg-white p-8 rounded-lg border">
-          <h1 className="text-2xl font-bold mb-6">Start New Collection</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between mt-3 mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">New Engagement</h1>
+      </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Client Info */}
+          <div className="border border-[#e0e3e8] rounded-lg p-5 bg-white space-y-5">
             <div>
-              <label htmlFor="clientName" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="clientName" className="block text-sm text-gray-500 mb-1.5">
                 Client Name
               </label>
               <input
@@ -293,13 +297,13 @@ export default function NewEngagement() {
                 id="clientName"
                 name="clientName"
                 required
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors"
                 placeholder="John Smith"
               />
             </div>
 
             <div>
-              <label htmlFor="clientEmail" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="clientEmail" className="block text-sm text-gray-500 mb-1.5">
                 Client Email
               </label>
               <input
@@ -307,14 +311,16 @@ export default function NewEngagement() {
                 id="clientEmail"
                 name="clientEmail"
                 required
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-9 px-3 text-sm border border-gray-300 rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors"
                 placeholder="john@example.com"
               />
             </div>
+          </div>
 
-            {/* Provider Selection */}
+          {/* Storage Provider */}
+          <div className="border border-[#e0e3e8] rounded-lg p-5 bg-white space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm text-gray-500 mb-3">
                 Storage Provider
               </label>
               <div className="grid grid-cols-3 gap-3">
@@ -323,32 +329,32 @@ export default function NewEngagement() {
                     key={provider}
                     type="button"
                     onClick={() => handleProviderChange(provider)}
-                    className={`p-3 border rounded-lg text-sm font-medium transition-colors ${
+                    className={`h-10 border rounded-lg text-sm font-medium transition-colors ${
                       selectedProvider === provider
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                        ? 'border-[#042f84] bg-[#042f84]/5 text-[#042f84]'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
                     }`}
                   >
                     {PROVIDER_LABELS[provider]}
                   </button>
                 ))}
               </div>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-xs text-gray-400 mt-2">
                 Select where your client will upload documents
               </p>
             </div>
 
-            {/* Input Mode Tabs (shown when provider is selected) */}
+            {/* Input Mode Tabs */}
             {selectedProvider && (
               <div>
-                <div className="flex border-b mb-4">
+                <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5 mb-4">
                   <button
                     type="button"
                     onClick={() => setInputMode('url')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    className={`flex-1 h-8 text-sm font-medium rounded-md transition-colors ${
                       inputMode === 'url'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     Paste URL
@@ -356,10 +362,10 @@ export default function NewEngagement() {
                   <button
                     type="button"
                     onClick={() => setInputMode('oauth')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    className={`flex-1 h-8 text-sm font-medium rounded-md transition-colors ${
                       inputMode === 'oauth'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     Connect Account
@@ -367,9 +373,8 @@ export default function NewEngagement() {
                 </div>
 
                 {inputMode === 'url' ? (
-                  /* URL Input Mode */
                   <div>
-                    <label htmlFor="storageFolderUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="storageFolderUrl" className="block text-sm text-gray-500 mb-1.5">
                       Storage Folder URL
                     </label>
                     <input
@@ -379,53 +384,51 @@ export default function NewEngagement() {
                       required
                       value={storageFolderUrl}
                       onChange={(e) => setStorageFolderUrl(e.target.value)}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        urlMismatch ? 'border-red-300 bg-red-50' : ''
+                      className={`w-full h-9 px-3 text-sm border rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors ${
+                        urlMismatch ? 'border-red-300 bg-red-50' : 'border-gray-300'
                       }`}
-                      placeholder={currentConfig?.placeholder || 'Select a provider above, or paste any supported URL'}
+                      placeholder={currentConfig?.placeholder || 'Paste folder URL'}
                     />
                     <div className="mt-2 space-y-1">
                       {currentConfig && (
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs text-gray-400">
                           {currentConfig.helpText}
                         </p>
                       )}
-                      
+
                       {urlMismatch ? (
-                        <p className="text-sm text-red-600 flex items-center gap-1">
-                          <span>✗</span>
-                          <span>URL is for {PROVIDER_LABELS[detectedProvider!]}, but you selected {PROVIDER_LABELS[selectedProvider!]}</span>
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                          URL is for {PROVIDER_LABELS[detectedProvider!]}, but you selected {PROVIDER_LABELS[selectedProvider!]}
                         </p>
                       ) : detectedProvider ? (
-                        <p className="text-sm text-green-600 flex items-center gap-1">
-                          <span>✓</span>
-                          <span>Detected: <strong>{PROVIDER_LABELS[detectedProvider]}</strong></span>
+                        <p className="text-xs text-green-600 flex items-center gap-1">
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+                          Detected: {PROVIDER_LABELS[detectedProvider]}
                         </p>
                       ) : storageFolderUrl.length > 0 ? (
-                        <p className="text-sm text-amber-600">
-                          Unable to detect provider. Please use a valid URL from a supported service.
+                        <p className="text-xs text-amber-600">
+                          Unable to detect provider. Please use a valid URL.
                         </p>
                       ) : null}
                     </div>
                   </div>
                 ) : (
-                  /* OAuth Mode */
                   <div>
                     {!oauthTokens ? (
-                      /* Connect Button */
-                      <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed">
-                        <p className="text-gray-600 mb-4">
-                          Connect your {PROVIDER_LABELS[selectedProvider]} account to browse and select a folder
+                      <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                        <p className="text-sm text-gray-500 mb-4">
+                          Connect your {PROVIDER_LABELS[selectedProvider]} account to browse folders
                         </p>
                         <button
                           type="button"
                           onClick={() => handleOAuthConnect(selectedProvider)}
                           disabled={isConnecting}
-                          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          className="inline-flex items-center gap-1.5 h-9 px-4 bg-[#042f84] text-white text-sm font-medium rounded-lg hover:bg-[#03246a] disabled:opacity-50 transition-colors"
                         >
                           {isConnecting ? (
                             <>
-                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                               </svg>
@@ -437,94 +440,95 @@ export default function NewEngagement() {
                         </button>
                       </div>
                     ) : (
-                      /* Folder Browser */
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-sm text-green-600 flex items-center gap-1">
-                            <span>✓</span>
-                            <span>Connected to {PROVIDER_LABELS[oauthTokens.provider]}</span>
+                          <p className="text-xs text-green-600 flex items-center gap-1">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+                            Connected to {PROVIDER_LABELS[oauthTokens.provider]}
                           </p>
                           <button
                             type="button"
                             onClick={handleDisconnect}
-                            className="text-sm text-gray-500 hover:text-gray-700"
+                            className="text-xs text-gray-400 hover:text-gray-600"
                           >
                             Disconnect
                           </button>
                         </div>
-                        
-                        {/* Breadcrumb Navigation */}
-                        <div className="flex items-center gap-1 text-sm mb-2 flex-wrap">
+
+                        {/* Breadcrumb */}
+                        <div className="flex items-center gap-1 text-xs mb-2 flex-wrap">
                           <button
                             type="button"
                             onClick={() => handleBreadcrumbClick(0)}
-                            className="text-blue-600 hover:underline"
+                            className="text-[#042f84] hover:underline"
                           >
                             Root
                           </button>
                           {folderPath.map((folder, index) => (
                             <span key={folder.id} className="flex items-center gap-1">
-                              <span className="text-gray-400">/</span>
+                              <span className="text-gray-300">/</span>
                               <button
                                 type="button"
                                 onClick={() => handleBreadcrumbClick(index + 1)}
-                                className="text-blue-600 hover:underline"
+                                className="text-[#042f84] hover:underline"
                               >
                                 {folder.name}
                               </button>
                             </span>
                           ))}
                         </div>
-                        
+
                         {/* Folder List */}
-                        <div className="border rounded-lg max-h-60 overflow-y-auto">
+                        <div className="border border-[#e0e3e8] rounded-lg max-h-60 overflow-y-auto">
                           {loadingFolders ? (
-                            <div className="p-4 text-center text-gray-500">
+                            <div className="p-4 text-center text-sm text-gray-400">
                               Loading folders...
                             </div>
                           ) : folders.length === 0 ? (
-                            <div className="p-4 text-center text-gray-500">
+                            <div className="p-4 text-center text-sm text-gray-400">
                               No subfolders found. Select this folder or navigate back.
                             </div>
                           ) : (
-                            <ul className="divide-y">
-                              {folders.map((folder) => (
-                                <li
-                                  key={folder.id}
-                                  className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${
-                                    selectedFolder?.id === folder.id
-                                      ? 'bg-blue-50'
-                                      : 'hover:bg-gray-50'
-                                  }`}
-                                  onClick={() => handleFolderClick(folder)}
-                                  onDoubleClick={() => handleFolderSelect(folder)}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-yellow-500">📁</span>
-                                    <span className="text-gray-900">{folder.name}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleFolderSelect(folder)
-                                    }}
-                                    className="text-xs text-blue-600 hover:underline"
+                            <div>
+                              {folders.map((folder, idx) => (
+                                <div key={folder.id}>
+                                  {idx > 0 && <div className="h-px bg-[#e5e5e5]" />}
+                                  <div
+                                    className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${
+                                      selectedFolder?.id === folder.id
+                                        ? 'bg-[#042f84]/5'
+                                        : 'hover:bg-gray-50'
+                                    }`}
+                                    onClick={() => handleFolderClick(folder)}
+                                    onDoubleClick={() => handleFolderSelect(folder)}
                                   >
-                                    Open →
-                                  </button>
-                                </li>
+                                    <div className="flex items-center gap-2">
+                                      <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" /></svg>
+                                      <span className="text-sm text-gray-900">{folder.name}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleFolderSelect(folder)
+                                      }}
+                                      className="text-xs text-gray-400 hover:text-gray-600"
+                                    >
+                                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+                                    </button>
+                                  </div>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           )}
                         </div>
-                        
-                        {/* Select Folder Button */}
+
+                        {/* Select Folder */}
                         <div className="mt-3 flex items-center justify-between">
-                          <p className="text-sm text-gray-500">
-                            {selectedFolder 
-                              ? `Selected: ${selectedFolder.name}` 
-                              : folderPath.length > 0 
+                          <p className="text-xs text-gray-400">
+                            {selectedFolder
+                              ? `Selected: ${selectedFolder.name}`
+                              : folderPath.length > 0
                                 ? `Current: ${folderPath[folderPath.length - 1].name}`
                                 : 'Select a folder or use current location'
                             }
@@ -533,13 +537,12 @@ export default function NewEngagement() {
                             type="button"
                             onClick={handleUseSelectedFolder}
                             disabled={!selectedFolder && folderPath.length === 0}
-                            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="inline-flex items-center h-8 px-3 bg-[#042f84] text-white text-xs font-medium rounded-lg hover:bg-[#03246a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             Use {selectedFolder ? 'Selected' : 'Current'} Folder
                           </button>
                         </div>
-                        
-                        {/* Hidden input for form submission */}
+
                         <input
                           type="hidden"
                           name="storageFolderUrl"
@@ -552,10 +555,10 @@ export default function NewEngagement() {
               </div>
             )}
 
-            {/* Show URL input when no provider is selected */}
+            {/* URL input when no provider selected */}
             {!selectedProvider && (
               <div>
-                <label htmlFor="storageFolderUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="storageFolderUrl" className="block text-sm text-gray-500 mb-1.5">
                   Storage Folder URL
                 </label>
                 <input
@@ -565,42 +568,42 @@ export default function NewEngagement() {
                   required
                   value={storageFolderUrl}
                   onChange={(e) => setStorageFolderUrl(e.target.value)}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-9 px-3 text-sm border border-gray-300 rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors"
                   placeholder="Select a provider above, or paste any supported URL"
                 />
                 <div className="mt-2 space-y-1">
                   {detectedProvider ? (
-                    <p className="text-sm text-green-600 flex items-center gap-1">
-                      <span>✓</span>
-                      <span>Detected: <strong>{PROVIDER_LABELS[detectedProvider]}</strong></span>
+                    <p className="text-xs text-green-600 flex items-center gap-1">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+                      Detected: {PROVIDER_LABELS[detectedProvider]}
                     </p>
                   ) : storageFolderUrl.length > 0 ? (
-                    <p className="text-sm text-amber-600">
-                      Unable to detect provider. Please use a valid URL from a supported service.
+                    <p className="text-xs text-amber-600">
+                      Unable to detect provider. Please use a valid URL.
                     </p>
                   ) : null}
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs text-gray-400">
                     Supported: Dropbox, Google Drive, SharePoint/OneDrive
                   </p>
                 </div>
               </div>
             )}
+          </div>
 
-            {error && (
-              <div className="p-4 bg-red-50 text-red-700 rounded-lg">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 text-sm text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting || urlMismatch || (inputMode === 'oauth' && !storageFolderUrl)}
-              className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? 'Creating...' : 'Create Engagement'}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={isSubmitting || urlMismatch || (inputMode === 'oauth' && !storageFolderUrl)}
+            className="w-full h-10 bg-[#042f84] text-white text-sm font-medium rounded-lg hover:bg-[#03246a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSubmitting ? 'Creating...' : 'Create Engagement'}
+          </button>
+        </form>
       </div>
     </div>
   )
