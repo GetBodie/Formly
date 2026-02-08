@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import EngagementDetail from '../EngagementDetail'
+
+// Mock react-markdown to just render children
+vi.mock('react-markdown', () => ({
+  default: ({ children }: { children: string }) => <div>{children}</div>,
+}))
 
 // Mock the API client
 vi.mock('../../api/client', () => ({
@@ -12,8 +17,10 @@ vi.mock('../../api/client', () => ({
   reclassifyDocument: vi.fn(),
   getEmailPreview: vi.fn(),
   sendDocumentFollowUp: vi.fn(),
-  getFriendlyIssues: vi.fn(),
   processEngagement: vi.fn(),
+  retryDocument: vi.fn(),
+  archiveDocument: vi.fn(),
+  unarchiveDocument: vi.fn(),
   DOCUMENT_TYPES: ['W-2', '1099-NEC', '1099-MISC', '1099-INT', 'K-1', 'RECEIPT', 'STATEMENT', 'OTHER', 'PENDING'],
 }))
 
@@ -22,8 +29,6 @@ import {
   generateBrief,
   approveDocument,
   reclassifyDocument,
-  getEmailPreview,
-  getFriendlyIssues,
   processEngagement,
 } from '../../api/client'
 
@@ -108,21 +113,10 @@ describe('EngagementDetail', () => {
     })
 
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Tax Year: 2025')).toBeInTheDocument()
+    expect(screen.getByText('Tax Year')).toBeInTheDocument()
+    expect(screen.getByText('2025')).toBeInTheDocument()
     expect(screen.getByText('COLLECTING')).toBeInTheDocument()
-    expect(screen.getByText('50% Complete')).toBeInTheDocument()
-  })
-
-  it('renders checklist items', async () => {
-    vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
-
-    renderWithRouter('eng_001')
-
-    await waitFor(() => {
-      expect(screen.getByText('W-2 from Employer')).toBeInTheDocument()
-    })
-
-    expect(screen.getByText('Required for tax filing')).toBeInTheDocument()
+    expect(screen.getByText('50%')).toBeInTheDocument()
   })
 
   it('renders document list', async () => {
@@ -131,7 +125,7 @@ describe('EngagementDetail', () => {
     renderWithRouter('eng_001')
 
     await waitFor(() => {
-      expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
+      expect(screen.getByText('W-2')).toBeInTheDocument()
     })
   })
 
@@ -166,11 +160,10 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
+        expect(screen.getByText('W-2')).toBeInTheDocument()
       })
 
-      // Click on document to select it
-      await user.click(screen.getByText('w2-2025.pdf'))
+      await user.click(screen.getByText('W-2'))
 
       await waitFor(() => {
         expect(screen.getByText('Document Detail')).toBeInTheDocument()
@@ -186,7 +179,7 @@ describe('EngagementDetail', () => {
         expect(screen.getByText('Test Client')).toBeInTheDocument()
       })
 
-      expect(screen.getByText('Select a document from the list to view details')).toBeInTheDocument()
+      expect(screen.getByText('Select a document')).toBeInTheDocument()
     })
   })
 
@@ -219,11 +212,11 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
+        expect(screen.getByText('W-2')).toBeInTheDocument()
       })
 
       // Select document
-      await user.click(screen.getByText('w2-2025.pdf'))
+      await user.click(screen.getByText('W-2'))
 
       await waitFor(() => {
         expect(screen.getByText('Document Detail')).toBeInTheDocument()
@@ -269,19 +262,19 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
+        expect(screen.getByText('W-2')).toBeInTheDocument()
       })
 
       // Select document
-      await user.click(screen.getByText('w2-2025.pdf'))
+      await user.click(screen.getByText('W-2'))
 
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toBeInTheDocument()
       })
 
-      // Change type
+      // Change type then click Apply
       await user.selectOptions(screen.getByRole('combobox'), '1099-NEC')
-      await user.click(screen.getByRole('button', { name: /Reclassify/i }))
+      await user.click(screen.getByRole('button', { name: /Apply/i }))
 
       await waitFor(() => {
         expect(reclassifyDocument).toHaveBeenCalledWith('eng_001', 'doc_001', '1099-NEC')
@@ -304,7 +297,7 @@ describe('EngagementDetail', () => {
         expect(screen.getByText('Test Client')).toBeInTheDocument()
       })
 
-      expect(screen.getByRole('button', { name: /Generate Brief/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /View Prep Brief/i })).toBeInTheDocument()
     })
 
     it('generates brief when button clicked', async () => {
@@ -323,10 +316,10 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Generate Brief/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /View Prep Brief/i })).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('button', { name: /Generate Brief/i }))
+      await user.click(screen.getByRole('button', { name: /View Prep Brief/i }))
 
       await waitFor(() => {
         expect(generateBrief).toHaveBeenCalledWith('eng_001')
@@ -334,6 +327,7 @@ describe('EngagementDetail', () => {
     })
 
     it('displays existing prep brief', async () => {
+      const user = userEvent.setup()
       const engagementWithBrief = {
         ...mockEngagement,
         status: 'READY',
@@ -344,13 +338,19 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
+        expect(screen.getByText('Test Client')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('button', { name: /View Prep Brief/i }))
+
+      await waitFor(() => {
         expect(screen.getByText(/Tax Prep Brief/i)).toBeInTheDocument()
       })
     })
   })
 
   describe('Document processing', () => {
-    it('shows spinner for in_progress documents', async () => {
+    it('shows document with PENDING type in table', async () => {
       const engagementWithProcessing = {
         ...mockEngagement,
         documents: [
@@ -367,43 +367,21 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
-      })
-
-      expect(screen.getByText('Processing...')).toBeInTheDocument()
-    })
-
-    it('shows "Processing documents..." banner when processing docs exist', async () => {
-      const engagementWithProcessing = {
-        ...mockEngagement,
-        documents: [
-          {
-            ...mockEngagement.documents[0],
-            documentType: 'PENDING',
-            processingStatus: 'pending',
-          },
-        ],
-      }
-      vi.mocked(getEngagement).mockResolvedValueOnce(engagementWithProcessing as any)
-
-      renderWithRouter('eng_001')
-
-      await waitFor(() => {
-        expect(screen.getByText('Processing documents...')).toBeInTheDocument()
+        expect(screen.getByText('PENDING')).toBeInTheDocument()
       })
     })
 
-    it('shows "Check for Documents" button for COLLECTING status', async () => {
+    it('shows "Check for Docs" button for COLLECTING status', async () => {
       vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
 
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Check for Documents/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Check for Docs/i })).toBeInTheDocument()
       })
     })
 
-    it('calls processEngagement when "Check for Documents" clicked', async () => {
+    it('calls processEngagement when "Check for Docs" clicked', async () => {
       const user = userEvent.setup()
       vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
       vi.mocked(processEngagement).mockResolvedValueOnce({
@@ -417,17 +395,17 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Check for Documents/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /Check for Docs/i })).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('button', { name: /Check for Documents/i }))
+      await user.click(screen.getByRole('button', { name: /Check for Docs/i }))
 
       await waitFor(() => {
         expect(processEngagement).toHaveBeenCalledWith('eng_001')
       })
     })
 
-    it('does not show "Check for Documents" button for READY status', async () => {
+    it('shows "Check for Docs" button for READY status too', async () => {
       const readyEngagement = { ...mockEngagement, status: 'READY' }
       vi.mocked(getEngagement).mockResolvedValueOnce(readyEngagement as any)
 
@@ -437,7 +415,8 @@ describe('EngagementDetail', () => {
         expect(screen.getByText('Test Client')).toBeInTheDocument()
       })
 
-      expect(screen.queryByRole('button', { name: /Check for Documents/i })).not.toBeInTheDocument()
+      // Button is always shown in the new UI
+      expect(screen.getByRole('button', { name: /Check for Docs/i })).toBeInTheDocument()
     })
 
     it('auto-polls when status is COLLECTING', async () => {
@@ -489,52 +468,15 @@ describe('EngagementDetail', () => {
       renderWithRouter('eng_001')
 
       await waitFor(() => {
-        expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
+        expect(screen.getByText('W-2')).toBeInTheDocument()
       })
 
       // Select document
       const user = userEvent.setup()
-      await user.click(screen.getByText('w2-2025.pdf'))
+      await user.click(screen.getByText('W-2'))
 
       await waitFor(() => {
         expect(screen.getByText('This document is from 2024, but we need 2025')).toBeInTheDocument()
-      })
-    })
-
-    it('fetches friendly issues for legacy documents', async () => {
-      const engagementWithIssues = {
-        ...mockEngagement,
-        documents: [
-          {
-            ...mockEngagement.documents[0],
-            issues: ['[ERROR:wrong_year:2025:2024] Wrong year'],
-            issueDetails: null, // No cached issue details
-          },
-        ],
-      }
-      vi.mocked(getEngagement).mockResolvedValue(engagementWithIssues as any)
-      vi.mocked(getFriendlyIssues).mockResolvedValueOnce({
-        issues: [
-          {
-            original: 'Wrong year',
-            friendlyMessage: 'Generated friendly message',
-            suggestedAction: 'Request 2025 version',
-            severity: 'error' as const,
-          },
-        ],
-      })
-
-      renderWithRouter('eng_001')
-
-      await waitFor(() => {
-        expect(screen.getByText('w2-2025.pdf')).toBeInTheDocument()
-      })
-
-      const user = userEvent.setup()
-      await user.click(screen.getByText('w2-2025.pdf'))
-
-      await waitFor(() => {
-        expect(getFriendlyIssues).toHaveBeenCalledWith('eng_001', 'doc_001')
       })
     })
   })
