@@ -62,6 +62,10 @@ export function getSuggestedAction(parsed: ParsedIssue): string {
       return 'Request clearer scan or photo'
     case 'duplicate':
       return 'Verify if duplicate is intentional'
+    case 'missing_field':
+      return parsed.expected
+        ? `Request clearer document with visible ${parsed.expected.replace(/_/g, ' ')}`
+        : 'Request clearer document with all fields visible'
     case 'low_confidence':
       return 'Manually verify document classification'
     default:
