@@ -88,7 +88,7 @@ export default function EngagementDetail() {
   const [generatingBrief, setGeneratingBrief] = useState(false)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
   const [checkingForDocs, setCheckingForDocs] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
+  const [showArchived] = useState(false)
   const [showPrepBrief, setShowPrepBrief] = useState(false)
   const [selectedDocId, setSelectedDocId] = useState<string | null>(searchParams.get('doc'))
   const [expandedIssueIdx, setExpandedIssueIdx] = useState<number>(0)
