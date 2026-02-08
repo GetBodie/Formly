@@ -1,6 +1,11 @@
 import { Hono } from 'hono'
 import type { StorageProvider } from '../lib/storage/types.js'
 
+function ensureUrl(val: string | undefined): string | undefined {
+  if (!val) return undefined
+  return val.startsWith('http') ? val : `https://${val}`
+}
+
 const oauth = new Hono()
 
 // In-memory state storage (in production, use Redis or database)
@@ -83,7 +88,7 @@ oauth.get('/auth/:provider', (c) => {
   const state = generateState()
   oauthStates.set(state, { provider, createdAt: Date.now() })
   
-  const redirectUri = `${process.env.API_URL || 'http://localhost:3009'}/api/oauth/callback/${provider}`
+  const redirectUri = `${ensureUrl(process.env.API_URL) || 'http://localhost:3009'}/api/oauth/callback/${provider}`
   
   const params = new URLSearchParams({
     client_id: credentials.clientId,
@@ -117,7 +122,7 @@ oauth.get('/callback/:provider', async (c) => {
   const state = c.req.query('state')
   const error = c.req.query('error')
   
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3010'
+  const frontendUrl = ensureUrl(process.env.FRONTEND_URL) || 'http://localhost:3010'
   
   if (error) {
     return c.redirect(`${frontendUrl}/new?oauth_error=${encodeURIComponent(error)}`)
@@ -136,7 +141,7 @@ oauth.get('/callback/:provider', async (c) => {
   
   const config = OAUTH_CONFIG[provider]
   const credentials = getOAuthCredentials(provider)
-  const redirectUri = `${process.env.API_URL || 'http://localhost:3009'}/api/oauth/callback/${provider}`
+  const redirectUri = `${ensureUrl(process.env.API_URL) || 'http://localhost:3009'}/api/oauth/callback/${provider}`
   
   try {
     // Exchange code for tokens

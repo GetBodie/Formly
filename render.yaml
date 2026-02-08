@@ -13,7 +13,6 @@ services:
     dockerContext: ./apps/api
     plan: free
     healthCheckPath: /health
-    preDeployCommand: npx prisma db push --skip-generate --accept-data-loss
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -29,12 +28,12 @@ services:
         fromService:
           name: tax-agent-api
           type: web
-          property: hostURL
+          property: host
       - key: FRONTEND_URL
         fromService:
           name: tax-agent-web
           type: web
-          property: hostURL
+          property: host
       # Required API keys - set these manually in Render dashboard
       - key: OPENAI_API_KEY
         sync: false
@@ -90,4 +89,4 @@ services:
         fromService:
           name: tax-agent-api
           type: web
-          property: hostURL
+          property: host
