@@ -28,7 +28,7 @@ app.use('*', cors({
 }))
 
 // Health check (public - no auth required)
-app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
+app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' }))
 
 // Protected routes - require API authentication
 // app.use('/api/engagements/*', requireApiAuth) // Disabled for demo
