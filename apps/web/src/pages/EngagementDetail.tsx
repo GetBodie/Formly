@@ -7,7 +7,6 @@ import {
   approveDocument,
   reclassifyDocument,
   sendDocumentFollowUp,
-  processEngagement,
   retryDocument,
   archiveDocument,
   unarchiveDocument,
@@ -18,7 +17,7 @@ import {
   type Reconciliation,
   type FriendlyIssue,
 } from '../api/client'
-import { hasErrors, hasWarnings } from '../utils/issues'
+import { parseIssue, getSuggestedAction, hasErrors, hasWarnings } from '../utils/issues'
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-gray-100 text-gray-800',
@@ -87,7 +86,6 @@ export default function EngagementDetail() {
   const [error, setError] = useState<string | null>(null)
   const [generatingBrief, setGeneratingBrief] = useState(false)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
-  const [checkingForDocs, setCheckingForDocs] = useState(false)
   const [showArchived] = useState(false)
   const [showPrepBrief, setShowPrepBrief] = useState(false)
   const [selectedDocId, setSelectedDocId] = useState<string | null>(searchParams.get('doc'))
@@ -145,16 +143,19 @@ export default function EngagementDetail() {
     }
   }
 
+  async function refetchEngagement() {
+    if (!id) return
+    const updated = await getEngagement(id)
+    setEngagement(updated)
+  }
+
   async function handleApproveDocument(docId: string) {
     if (!id || !engagement) return
 
     setActionInProgress('approve')
     try {
-      const result = await approveDocument(id, docId)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await approveDocument(id, docId)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve document')
     } finally {
@@ -167,11 +168,8 @@ export default function EngagementDetail() {
 
     setActionInProgress('reclassify')
     try {
-      const result = await reclassifyDocument(id, docId, newType)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await reclassifyDocument(id, docId, newType)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reclassify document')
     } finally {
@@ -194,31 +192,14 @@ export default function EngagementDetail() {
     }
   }
 
-  async function handleCheckForDocs() {
-    if (!id || !engagement) return
-
-    setCheckingForDocs(true)
-    try {
-      await processEngagement(id)
-      const updated = await getEngagement(id)
-      setEngagement(updated)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to check for documents')
-    } finally {
-      setCheckingForDocs(false)
-    }
-  }
 
   async function handleRetryDocument(docId: string) {
     if (!id || !engagement) return
 
     setActionInProgress('retry')
     try {
-      const result = await retryDocument(id, docId)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await retryDocument(id, docId)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to retry document')
     } finally {
@@ -231,11 +212,8 @@ export default function EngagementDetail() {
 
     setActionInProgress('archive')
     try {
-      const result = await archiveDocument(id, docId, reason)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await archiveDocument(id, docId, reason)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to archive document')
     } finally {
@@ -248,11 +226,8 @@ export default function EngagementDetail() {
 
     setActionInProgress('unarchive')
     try {
-      const result = await unarchiveDocument(id, docId)
-      const documents = (engagement.documents || []).map(d =>
-        d.id === docId ? result.document : d
-      )
-      setEngagement({ ...engagement, documents })
+      await unarchiveDocument(id, docId)
+      await refetchEngagement()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to restore document')
     } finally {
@@ -343,13 +318,6 @@ export default function EngagementDetail() {
         <div className="flex items-center justify-between mt-3 mb-3">
           <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{engagement.clientName}</h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleCheckForDocs}
-              disabled={checkingForDocs}
-              className="inline-flex items-center gap-1.5 h-8 px-3 border border-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              {checkingForDocs ? 'Checking...' : 'Check for Docs'}
-            </button>
             {engagement.status === 'READY' && (
               <button
                 onClick={openPrepBrief}
@@ -445,7 +413,7 @@ export default function EngagementDetail() {
             <div className="overflow-y-auto max-h-[500px]">
               {visibleDocuments.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 text-sm">
-                  No documents yet. Click "Check for Docs" to scan storage.
+                  No documents yet.
                 </div>
               ) : (
                 visibleDocuments.map(doc => {
@@ -667,12 +635,15 @@ function DocumentPanel({
   const [selectedType, setSelectedType] = useState('')
   const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
 
-  const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => ({
-    original: issue,
-    friendlyMessage: issue,
-    suggestedAction: 'Review and take appropriate action',
-    severity: 'warning' as const
-  }))
+  const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
+    const parsed = parseIssue(issue)
+    return {
+      original: issue,
+      friendlyMessage: parsed.description,
+      suggestedAction: getSuggestedAction(parsed),
+      severity: parsed.severity,
+    }
+  })
 
   return (
     <div className="flex flex-col h-full py-4">
@@ -825,7 +796,7 @@ function DocumentPanel({
                       <div className="pl-[36px] pr-4 pb-4 flex flex-col gap-4">
                         <div className="flex flex-col gap-1">
                           <div className="text-sm text-gray-500">Issue Description</div>
-                          <div className="text-sm text-black">{issue.original || issue.friendlyMessage}</div>
+                          <div className="text-sm text-black">{issue.friendlyMessage}</div>
                         </div>
                         <div className="flex flex-col gap-1">
                           <div className="text-sm text-gray-500">Recommended Action</div>
@@ -857,7 +828,7 @@ function DocumentPanel({
 
       {/* Action buttons at bottom */}
       {hasUnresolvedIssues && !doc.archived && (
-        <div className="px-4 flex gap-2 justify-end">
+        <div className="px-4 py-3 flex gap-2 justify-end">
           <button
             onClick={() => onApprove(doc.id)}
             disabled={actionInProgress !== null}
