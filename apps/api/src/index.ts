@@ -8,7 +8,7 @@ import documents from './routes/documents.js'
 import webhooks from './routes/webhooks.js'
 import cron from './routes/cron.js'
 import oauth from './routes/oauth.js'
-import { requireApiAuth } from './middleware/auth.js'
+// Auth middleware available at ./middleware/auth.js
 import admin from './routes/admin.js'
 import { initScheduler } from './scheduler.js'
 

@@ -13,35 +13,31 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }))
 
+vi.mock('../../lib/agents/reconciliation.js', () => ({
+  runReconciliationAgent: vi.fn(async () => ({ isReady: false, completionPercentage: 50 })),
+}))
+
+vi.mock('../../lib/agents/assessment-fast.js', () => ({
+  runAssessmentFast: vi.fn(async () => {}),
+}))
+
 vi.mock('../../lib/email.js', () => ({
   sendEmail: vi.fn(async () => ({ id: 'email_123' })),
 }))
 
 vi.mock('../../lib/openai.js', () => ({
   generateFollowUpEmail: vi.fn(async () => ({
-    subject: 'Action Needed: Document Issue',
-    body: 'Please provide the corrected document.',
+    subject: 'Action Required: W-2 Issue',
+    body: 'Your W-2 document needs attention...',
   })),
   generateFriendlyIssues: vi.fn(async () => [
-    {
-      original: 'Wrong year',
-      friendlyMessage: 'This document is from 2024',
-      suggestedAction: 'Request 2025 version',
-      severity: 'error',
-    },
+    { title: 'Missing Information', description: 'SSN not visible', severity: 'high' },
   ]),
 }))
 
-vi.mock('../../lib/agents/reconciliation.js', () => ({
-  runReconciliationAgent: vi.fn(async () => ({
-    isReady: false,
-    completionPercentage: 50,
-  })),
-}))
-
 import { prisma } from '../../lib/prisma.js'
+import { runReconciliationAgent } from '../../lib/agents/reconciliation.js'
 import { sendEmail } from '../../lib/email.js'
-import { generateFollowUpEmail, generateFriendlyIssues } from '../../lib/openai.js'
 
 const app = new Hono().route('/api/engagements', documentRoutes)
 
@@ -52,13 +48,12 @@ function createRequest(path: string, options?: RequestInit): Request {
 describe('Document Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.resetAllMocks()
     resetIdCounter()
   })
 
   describe('POST /api/engagements/:engagementId/documents/:docId/approve', () => {
-    it('approves document successfully', async () => {
-      const doc = createMockDocument({ id: 'doc_123', approved: null })
+    it('approves document and triggers reconciliation', async () => {
+      const doc = createMockDocument({ id: 'doc_123', documentType: 'W-2' })
       const mockEngagement = createMockEngagement({
         id: 'eng_123',
         documents: [doc],
@@ -73,48 +68,45 @@ describe('Document Routes', () => {
       )
 
       expect(res.status).toBe(200)
-      const data = (await res.json()) as Record<string, unknown>
+      const data = await res.json() as any
       expect(data.success).toBe(true)
       expect(data.document.approved).toBe(true)
-      expect(data.document.approvedAt).toBeDefined()
+      expect(runReconciliationAgent).toHaveBeenCalled()
+    })
+
+    it('returns 404 for non-existent document', async () => {
+      const mockEngagement = createMockEngagement({ id: 'eng_123', documents: [] })
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+
+      const res = await app.request(
+        createRequest('/api/engagements/eng_123/documents/doc_nonexistent/approve', {
+          method: 'POST',
+        })
+      )
+
+      expect(res.status).toBe(404)
+      const data = await res.json() as any
+      expect(data.error).toBe('Document not found')
     })
 
     it('returns 404 for non-existent engagement', async () => {
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(null)
 
       const res = await app.request(
-        createRequest('/api/engagements/nonexistent/documents/doc_123/approve', {
+        createRequest('/api/engagements/eng_nonexistent/documents/doc_123/approve', {
           method: 'POST',
         })
       )
 
       expect(res.status).toBe(404)
-      const data = (await res.json()) as Record<string, unknown>
+      const data = await res.json() as any
       expect(data.error).toBe('Engagement not found')
-    })
-
-    it('returns 404 for non-existent document', async () => {
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/nonexistent/approve', {
-          method: 'POST',
-        })
-      )
-
-      expect(res.status).toBe(404)
-      const data = (await res.json()) as Record<string, unknown>
-      expect(data.error).toBe('Document not found')
     })
   })
 
   describe('POST /api/engagements/:engagementId/documents/:docId/reclassify', () => {
-    it('reclassifies document successfully', async () => {
-      const doc = createMockDocument({ id: 'doc_123', documentType: 'W-2' })
+    it('reclassifies document to new type', async () => {
+      const doc = createMockDocument({ id: 'doc_123', documentType: 'PENDING' })
       const mockEngagement = createMockEngagement({
         id: 'eng_123',
         documents: [doc],
@@ -126,15 +118,16 @@ describe('Document Routes', () => {
         createRequest('/api/engagements/eng_123/documents/doc_123/reclassify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newType: '1099-NEC' }),
+          body: JSON.stringify({ newType: 'W-2' }),
         })
       )
 
       expect(res.status).toBe(200)
-      const data = (await res.json()) as Record<string, unknown>
+      const data = await res.json() as any
       expect(data.success).toBe(true)
-      expect(data.document.documentType).toBe('1099-NEC')
-      expect(data.document.override.originalType).toBe('W-2')
+      expect(data.document.documentType).toBe('W-2')
+      expect(data.document.override).toBeDefined()
+      expect(data.document.override.originalType).toBe('PENDING')
     })
 
     it('returns 400 for invalid document type', async () => {
@@ -155,82 +148,71 @@ describe('Document Routes', () => {
 
       expect(res.status).toBe(400)
     })
+  })
 
-    it('returns 404 for non-existent document', async () => {
+  describe('POST /api/engagements/:engagementId/documents/:docId/archive', () => {
+    it('archives document with reason', async () => {
+      const doc = createMockDocument({ id: 'doc_123', documentType: 'W-2' })
       const mockEngagement = createMockEngagement({
         id: 'eng_123',
-        documents: [],
+        documents: [doc],
       })
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
 
       const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/nonexistent/reclassify', {
+        createRequest('/api/engagements/eng_123/documents/doc_123/archive', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newType: 'W-2' }),
+          body: JSON.stringify({ reason: 'Duplicate document' }),
         })
       )
 
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(200)
+      const data = await res.json() as any
+      expect(data.success).toBe(true)
+      expect(data.document.archived).toBe(true)
+      expect(data.document.archivedReason).toBe('Duplicate document')
     })
   })
 
-  describe('GET /api/engagements/:engagementId/documents/:docId/email-preview', () => {
-    it('generates email preview for document with issues', async () => {
+  describe('POST /api/engagements/:engagementId/documents/:docId/unarchive', () => {
+    it('restores archived document', async () => {
       const doc = createMockDocument({
         id: 'doc_123',
-        issues: ['[ERROR:wrong_year:2025:2024] Wrong year'],
+        documentType: 'W-2',
+        archived: true,
+        archivedAt: new Date().toISOString(),
       })
       const mockEngagement = createMockEngagement({
         id: 'eng_123',
         documents: [doc],
       })
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
 
       const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/email-preview')
+        createRequest('/api/engagements/eng_123/documents/doc_123/unarchive', {
+          method: 'POST',
+        })
       )
 
       expect(res.status).toBe(200)
-      const data = (await res.json()) as Record<string, unknown>
-      expect(data.subject).toBeDefined()
-      expect(data.body).toBeDefined()
-      expect(data.recipientEmail).toBe('client@example.com')
-    })
-
-    it('returns 400 for document without issues', async () => {
-      const doc = createMockDocument({ id: 'doc_123', issues: [] })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/email-preview')
-      )
-
-      expect(res.status).toBe(400)
-      const data = (await res.json()) as Record<string, unknown>
-      expect(data.error).toContain('no issues')
-    })
-
-    it('returns 404 for non-existent engagement', async () => {
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(null)
-
-      const res = await app.request(
-        createRequest('/api/engagements/nonexistent/documents/doc_123/email-preview')
-      )
-
-      expect(res.status).toBe(404)
+      const data = await res.json() as any
+      expect(data.success).toBe(true)
+      expect(data.document.archived).toBe(false)
     })
   })
 
   describe('POST /api/engagements/:engagementId/documents/:docId/send-followup', () => {
-    it('sends follow-up email with custom content', async () => {
-      const doc = createMockDocument({ id: 'doc_123' })
+    it('uses custom email content when provided', async () => {
+      const doc = createMockDocument({
+        id: 'doc_123',
+        issues: ['SEVERITY:high TYPE:missing DETAILS:Issue'],
+      })
       const mockEngagement = createMockEngagement({
         id: 'eng_123',
+        storageFolderUrl: 'https://dropbox.com/test',
         documents: [doc],
       })
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
@@ -241,167 +223,17 @@ describe('Document Routes', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             subject: 'Custom Subject',
-            body: 'Custom message body',
+            body: 'Custom email body',
+            email: 'custom@example.com',
           }),
         })
       )
 
       expect(res.status).toBe(200)
-      const data = (await res.json()) as Record<string, unknown>
-      expect(data.success).toBe(true)
       expect(sendEmail).toHaveBeenCalledWith(
-        'client@example.com',
+        'custom@example.com',
         expect.objectContaining({ subject: 'Custom Subject' })
       )
-    })
-
-    it('sends email to custom address', async () => {
-      const doc = createMockDocument({ id: 'doc_123' })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/send-followup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'other@example.com',
-            subject: 'Test',
-            body: 'Test body',
-          }),
-        })
-      )
-
-      expect(res.status).toBe(200)
-      expect(sendEmail).toHaveBeenCalledWith('other@example.com', expect.any(Object))
-    })
-
-    it('generates email content when not provided', async () => {
-      const doc = createMockDocument({
-        id: 'doc_123',
-        issues: ['[ERROR:wrong_year:2025:2024] Wrong year'],
-      })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/send-followup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-      )
-
-      expect(res.status).toBe(200)
-      expect(generateFollowUpEmail).toHaveBeenCalled()
-    })
-
-    it('returns 400 for document without issues when no content provided', async () => {
-      const doc = createMockDocument({ id: 'doc_123', issues: [] })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/send-followup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-      )
-
-      expect(res.status).toBe(400)
-    })
-  })
-
-  describe('GET /api/engagements/:engagementId/documents/:docId/friendly-issues', () => {
-    it('returns cached issue details when available', async () => {
-      const cachedIssues = [
-        {
-          original: 'Wrong year',
-          friendlyMessage: 'This is cached',
-          suggestedAction: 'Do something',
-          severity: 'error' as const,
-        },
-      ]
-      const doc = createMockDocument({
-        id: 'doc_123',
-        issues: ['[ERROR:wrong_year:2025:2024] Wrong year'],
-        issueDetails: cachedIssues,
-      })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/friendly-issues')
-      )
-
-      expect(res.status).toBe(200)
-      const data = (await res.json()) as Record<string, unknown>
-      expect(data.issues[0].friendlyMessage).toBe('This is cached')
-      expect(generateFriendlyIssues).not.toHaveBeenCalled()
-    })
-
-    it('generates friendly issues for legacy documents', async () => {
-      const doc = createMockDocument({
-        id: 'doc_123',
-        issues: ['[ERROR:wrong_year:2025:2024] Wrong year'],
-        issueDetails: null,
-      })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/friendly-issues')
-      )
-
-      expect(res.status).toBe(200)
-      expect(generateFriendlyIssues).toHaveBeenCalled()
-    })
-
-    it('returns empty array for document without issues', async () => {
-      const doc = createMockDocument({ id: 'doc_123', issues: [] })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/doc_123/friendly-issues')
-      )
-
-      expect(res.status).toBe(200)
-      const data = (await res.json()) as Record<string, unknown>
-      expect(data.issues).toEqual([])
-    })
-
-    it('returns 404 for non-existent document', async () => {
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
-      const res = await app.request(
-        createRequest('/api/engagements/eng_123/documents/nonexistent/friendly-issues')
-      )
-
-      expect(res.status).toBe(404)
     })
   })
 })

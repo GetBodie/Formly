@@ -50,7 +50,7 @@ app.post('/dropbox', async (c) => {
   let payload: { list_folder?: { accounts?: string[] }; delta?: { users?: number[] } }
   try {
     payload = JSON.parse(rawBody)
-  } catch (e) {
+  } catch {
     console.log('[DROPBOX WEBHOOK] Invalid JSON payload')
     return c.json({ error: 'Invalid JSON' }, 400)
   }

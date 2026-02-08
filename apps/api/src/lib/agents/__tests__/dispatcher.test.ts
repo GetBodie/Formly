@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { dispatch, type AgentEvent } from '../dispatcher.js'
-import { createMockEngagement, createMockChecklistItem, resetIdCounter } from '../../../test/factories.js'
+import { createMockEngagement, createMockChecklistItem, createMockDocument, resetIdCounter } from '../../../test/factories.js'
 
 // Mock dependencies
 vi.mock('../../prisma.js', () => ({
@@ -29,6 +29,13 @@ vi.mock('../assessment.js', () => ({
   })),
 }))
 
+vi.mock('../assessment-fast.js', () => ({
+  runAssessmentFast: vi.fn(async () => ({
+    documentType: 'W-2',
+    hasIssues: false,
+  })),
+}))
+
 vi.mock('../reconciliation.js', () => ({
   runReconciliationAgent: vi.fn(async () => ({
     isReady: false,
@@ -39,6 +46,7 @@ vi.mock('../reconciliation.js', () => ({
 import { prisma } from '../../prisma.js'
 import { sendEmail, emailTemplates } from '../../email.js'
 import { runAssessmentAgent } from '../assessment.js'
+import { runAssessmentFast } from '../assessment-fast.js'
 import { runReconciliationAgent } from '../reconciliation.js'
 
 describe('Agent Dispatcher', () => {
@@ -99,7 +107,10 @@ describe('Agent Dispatcher', () => {
 
   describe('document_uploaded event', () => {
     it('runs assessment agent and chains to document_assessed', async () => {
-      const mockEngagement = createMockEngagement({ id: 'eng_123' })
+      const mockDocument = createMockDocument({ id: 'doc_001', storageItemId: 'storage_001' })
+      const mockEngagement = createMockEngagement({ id: 'eng_123', documents: [mockDocument] })
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
 
       await dispatch({
         type: 'document_uploaded',
@@ -109,8 +120,7 @@ describe('Agent Dispatcher', () => {
         fileName: 'w2.pdf',
       })
 
-      expect(runAssessmentAgent).toHaveBeenCalledWith({
-        trigger: 'document_uploaded',
+      expect(runAssessmentFast).toHaveBeenCalledWith({
         engagementId: 'eng_123',
         documentId: 'doc_001',
         storageItemId: 'storage_001',

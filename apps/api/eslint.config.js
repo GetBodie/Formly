@@ -5,7 +5,15 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**'],
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'node_modules/**',
+      // Test files excluded from typed linting (not in tsconfig)
+      'src/**/*.test.ts',
+      'src/**/__tests__/**',
+      'src/test/**',
+    ],
   },
   {
     files: ['src/**/*.ts'],
@@ -20,13 +28,6 @@ export default tseslint.config(
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-    },
-  },
-  {
-    files: ['src/**/*.test.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      'no-console': 'off',
     },
   }
 )
