@@ -211,6 +211,31 @@ describe('Engagement Routes', () => {
       expect(data.storageFolderId).toBe('/new-folder')
     })
 
+    it('updates status field and passes it to Prisma', async () => {
+      const existing = createMockEngagement({ id: 'eng_123', status: 'PENDING' })
+      const updated = { ...existing, status: 'COLLECTING' }
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(existing as any)
+      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(updated as any)
+
+      const res = await app.request(
+        createRequest('/api/engagements/eng_123', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'COLLECTING' }),
+        })
+      )
+
+      expect(res.status).toBe(200)
+      const data = (await res.json()) as Record<string, unknown>
+      expect(data.status).toBe('COLLECTING')
+      
+      // Verify Prisma was called with status in the update data
+      expect(prisma.engagement.update).toHaveBeenCalledWith({
+        where: { id: 'eng_123' },
+        data: { status: 'COLLECTING' },
+      })
+    })
+
     it('returns 404 for non-existent engagement', async () => {
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(null)
 
