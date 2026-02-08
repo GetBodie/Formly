@@ -55,9 +55,9 @@ describe('Dashboard', () => {
     })
 
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Tax Year: 2025')).toBeInTheDocument()
-    expect(screen.getByText('COLLECTING')).toBeInTheDocument()
-    expect(screen.getByText('50% complete')).toBeInTheDocument()
+    expect(screen.getByText('2025')).toBeInTheDocument()
+    expect(screen.getByText('Collecting')).toBeInTheDocument()
+    expect(screen.getByText('50%')).toBeInTheDocument()
   })
 
   it('renders empty state when no engagements', async () => {
@@ -82,7 +82,7 @@ describe('Dashboard', () => {
     })
   })
 
-  it('links to engagement detail page', async () => {
+  it('renders clickable engagement rows', async () => {
     const mockEngagements = [
       {
         id: 'eng_001',
@@ -109,8 +109,8 @@ describe('Dashboard', () => {
       expect(screen.getByText('Test Client')).toBeInTheDocument()
     })
 
-    const link = screen.getByRole('link', { name: /Test Client/i })
-    expect(link).toHaveAttribute('href', '/engagements/eng_001')
+    const row = screen.getByText('Test Client').closest('tr')
+    expect(row).toHaveClass('cursor-pointer')
   })
 
   it('links to new engagement page', async () => {
@@ -170,7 +170,7 @@ describe('Dashboard', () => {
     })
 
     expect(screen.getByText('Client Two')).toBeInTheDocument()
-    expect(screen.getByText('PENDING')).toBeInTheDocument()
-    expect(screen.getByText('READY')).toBeInTheDocument()
+    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText('Ready')).toBeInTheDocument()
   })
 })

@@ -1,6 +1,11 @@
 import { Resend } from 'resend'
 import type { ChecklistItem } from '../types.js'
 
+function ensureUrl(val: string | undefined): string | undefined {
+  if (!val) return undefined
+  return val.startsWith('http') ? val : `https://${val}`
+}
+
 // Lazy initialization to ensure env vars are loaded
 let resendClient: Resend | null = null
 function getResendClient(): Resend {
@@ -149,7 +154,7 @@ export const emailTemplates = {
         <p><strong>Email:</strong> ${engagement.clientEmail}</p>
         <p>All required documents have been collected and a prep brief has been generated.</p>
         <p style="margin: 24px 0;">
-          <a href="${process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173'}/engagements/${engagement.id}"
+          <a href="${ensureUrl(process.env.APP_URL) || ensureUrl(process.env.FRONTEND_URL) || 'http://localhost:5173'}/engagements/${engagement.id}"
              style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
             View Engagement
           </a>

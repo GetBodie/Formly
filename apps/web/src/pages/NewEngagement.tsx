@@ -61,7 +61,8 @@ const PROVIDER_CONFIG: Record<StorageProvider, {
   },
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3009'
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3009'
+const API_URL = rawApiUrl.startsWith('http') ? rawApiUrl : `https://${rawApiUrl}`
 
 export default function NewEngagement() {
   const navigate = useNavigate()

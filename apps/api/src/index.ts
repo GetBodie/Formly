@@ -12,12 +12,17 @@ import oauth from './routes/oauth.js'
 import admin from './routes/admin.js'
 import { initScheduler } from './scheduler.js'
 
+function ensureUrl(val: string | undefined): string | undefined {
+  if (!val) return undefined
+  return val.startsWith('http') ? val : `https://${val}`
+}
+
 const app = new Hono()
 
 // Middleware
 app.use('*', logger())
 app.use('*', cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3010',
+  origin: ensureUrl(process.env.FRONTEND_URL) || 'http://localhost:3010',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))

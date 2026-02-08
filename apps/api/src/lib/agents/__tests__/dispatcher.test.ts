@@ -22,8 +22,8 @@ vi.mock('../../email.js', () => ({
   },
 }))
 
-vi.mock('../assessment.js', () => ({
-  runAssessmentAgent: vi.fn(async () => ({
+vi.mock('../assessment-fast.js', () => ({
+  runAssessmentFast: vi.fn(async () => ({
     documentType: 'W-2',
     hasIssues: false,
   })),
@@ -45,7 +45,6 @@ vi.mock('../reconciliation.js', () => ({
 
 import { prisma } from '../../prisma.js'
 import { sendEmail, emailTemplates } from '../../email.js'
-import { runAssessmentAgent } from '../assessment.js'
 import { runAssessmentFast } from '../assessment-fast.js'
 import { runReconciliationAgent } from '../reconciliation.js'
 
