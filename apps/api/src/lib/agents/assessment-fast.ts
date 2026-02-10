@@ -117,7 +117,7 @@ export async function runAssessmentFast(context: {
       `classification ${fileName}`
     )
     
-    console.log(`[FAST] Classified ${fileName}: ${classification.documentType} (${Math.round(classification.confidence * 100)}%) after ${classification.attempts} attempt(s)`)
+    console.log(`[FAST] Classified ${fileName}: ${classification.documentType} (${Math.round(classification.confidence * 100)}%)${classification.needsHumanReview ? ' [NEEDS REVIEW]' : ''}`)
 
     // 4. Single DB write with all updates (clear retry count on success)
     documents[docIndex] = {
