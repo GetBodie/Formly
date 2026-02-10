@@ -132,17 +132,22 @@ function executeToolCall(name: string, input: unknown): unknown {
   
   switch (name) {
     case 'extract_fields': {
-      // Extraction is done by Claude - we just acknowledge and optionally enrich
+      // Extraction is done by Claude - we just acknowledge and optionally provide hints
       const extraction = input as ExtractFieldsInput
       const template = getFormTemplate(extraction.document_type)
+      
+      // Template hints are optional - LLM handles unknown types gracefully
+      const hint = template ? {
+        type: template.type,
+        displayName: template.displayName,
+        exampleFields: template.exampleFields.map(f => f.name),
+        confidenceThreshold: template.confidenceThreshold
+      } : null
+      
       return {
         status: 'ok',
         extraction,
-        template_hint: {
-          type: template.type,
-          required_fields: template.fields.filter(f => f.required).map(f => f.name),
-          confidence_threshold: template.confidenceThreshold
-        }
+        template_hint: hint
       }
     }
     
