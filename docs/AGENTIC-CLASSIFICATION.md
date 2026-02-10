@@ -603,23 +603,11 @@ const tools: Anthropic.Tool[] = [
       required: ['pass', 'score', 'issues']
     }
   },
-  {
-    name: 'finalize_classification',
-    description: `Call this when you're confident in the classification OR have exhausted attempts (max 3). Returns the final result.`,
-    input_schema: {
-      type: 'object',
-      properties: {
-        document_type: { type: 'string' },
-        confidence: { type: 'number' },
-        tax_year: { type: 'number', nullable: true },
-        issues: { type: 'array', items: { type: 'string' } },
-        extracted_fields: { type: 'object' },
-        needs_human_review: { type: 'boolean' }
-      },
-      required: ['document_type', 'confidence', 'issues', 'needs_human_review']
-    }
-  }
 ]
+
+// Note: No finalize_classification tool needed.
+// When Claude is satisfied, it stops calling tools and returns the final answer in text.
+// We parse that final message for the classification result.
 
 export async function classifyDocumentAgentic(
   ocrText: string,
@@ -633,13 +621,23 @@ WORKFLOW:
 1. Call extract_fields to analyze the OCR text
 2. Call grade_extraction to evaluate your extraction
 3. If grade fails, try extract_fields again with the feedback (max 3 attempts)
-4. Call finalize_classification when done
+4. When satisfied (or after 3 attempts), STOP calling tools and return your final answer
 
 RULES:
 - Don't hallucinate field values - only extract what you see
-- Blank forms (no filled values) should get low confidence and needs_human_review=true
+- Blank forms (no filled values) should get low confidence
 - If tax year doesn't match ${expectedTaxYear || 'expected'}, flag it as an issue
-- After 3 failed attempts, finalize with needs_human_review=true
+- After 3 failed attempts, return your best guess with low confidence
+
+WHEN DONE, respond with this exact JSON format (no tool call):
+{
+  "document_type": "W-2",
+  "confidence": 0.85,
+  "tax_year": 2024,
+  "issues": ["[WARNING:...] description"],
+  "extracted_fields": { "wages": 52000, ... },
+  "needs_human_review": false
+}
 
 OCR TEXT:
 ${ocrText.slice(0, 15000)}
@@ -652,9 +650,7 @@ EXPECTED TAX YEAR: ${expectedTaxYear || 'any'}`
   ]
 
   // Agentic loop - Claude drives, we execute tools
-  let result: ClassificationResult | null = null
-  
-  while (!result) {
+  while (true) {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
@@ -663,8 +659,28 @@ EXPECTED TAX YEAR: ${expectedTaxYear || 'any'}`
       messages
     })
 
+    // Check if Claude is done (no more tool calls)
+    const toolUseBlocks = response.content.filter(b => b.type === 'tool_use')
+    
+    if (toolUseBlocks.length === 0) {
+      // Claude is done - parse final answer from text
+      const textBlock = response.content.find(b => b.type === 'text')
+      if (textBlock && textBlock.type === 'text') {
+        return parseClassificationResult(textBlock.text)
+      }
+      // Fallback if no text
+      return {
+        documentType: 'OTHER',
+        confidence: 0.3,
+        taxYear: null,
+        issues: ['[WARNING:incomplete::] Classification did not complete properly'],
+        extractedFields: {},
+        needsHumanReview: true
+      }
+    }
+
     // Process tool calls
-    for (const block of response.content) {
+    for (const block of toolUseBlocks) {
       if (block.type === 'tool_use') {
         const toolResult = await executeToolCall(block.name, block.input)
         
@@ -678,28 +694,39 @@ EXPECTED TAX YEAR: ${expectedTaxYear || 'any'}`
             content: JSON.stringify(toolResult)
           }]
         })
-        
-        // Check if we're done
-        if (block.name === 'finalize_classification') {
-          result = toolResult as ClassificationResult
-        }
-      }
-    }
-
-    // Safety: if Claude stops without finalizing, force finalize
-    if (response.stop_reason === 'end_turn' && !result) {
-      result = {
-        documentType: 'OTHER',
-        confidence: 0.3,
-        taxYear: null,
-        issues: ['[WARNING:incomplete::] Classification did not complete properly'],
-        extractedFields: {},
-        needsHumanReview: true
       }
     }
   }
+}
 
-  return result
+// Parse Claude's final JSON response
+function parseClassificationResult(text: string): ClassificationResult {
+  try {
+    // Extract JSON from the response
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      return {
+        documentType: parsed.document_type || 'OTHER',
+        confidence: parsed.confidence || 0.5,
+        taxYear: parsed.tax_year || null,
+        issues: parsed.issues || [],
+        extractedFields: parsed.extracted_fields || {},
+        needsHumanReview: parsed.needs_human_review || false
+      }
+    }
+  } catch (e) {
+    console.error('[CLASSIFIER] Failed to parse result:', e)
+  }
+  
+  return {
+    documentType: 'OTHER',
+    confidence: 0.3,
+    taxYear: null,
+    issues: ['[WARNING:parse_error::] Could not parse classification result'],
+    extractedFields: {},
+    needsHumanReview: true
+  }
 }
 
 // Tool execution - these are simple pass-throughs since Claude does the real work

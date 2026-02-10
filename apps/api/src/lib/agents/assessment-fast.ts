@@ -1,5 +1,5 @@
 import { prisma } from '../prisma.js'
-import { classifyDocument as classifyWithOpenAI } from '../openai.js'
+import { classifyDocumentAgentic } from './classifier-agent.js'
 import { getStorageClient, type StorageProvider } from '../storage/index.js'
 import { extractDocument, isSupportedFileType } from '../document-extraction.js'
 import type { Document } from '../../types.js'
@@ -104,19 +104,20 @@ export async function runAssessmentFast(context: {
     console.log(`[FAST] Extracted ${fileName} (${extraction.markdown.length} chars)`)
 
     // 3. Classification with timeout (update status in memory)
+    // Uses agentic loop: extract → grade → feedback → retry (max 3 attempts)
     documents[docIndex].processingStatus = 'classifying'
     
     const classification = await withTimeout(
-      classifyWithOpenAI(
-        extraction.markdown.slice(0, 10000),
+      classifyDocumentAgentic(
+        extraction.markdown.slice(0, 15000), // Increased limit for better extraction
         fileName,
         engagement.taxYear
       ),
-      PROCESSING_TIMEOUT_MS / 3, // Allow ~1.6 min for classification
+      PROCESSING_TIMEOUT_MS / 2, // Allow more time for agentic loop (~2.5 min)
       `classification ${fileName}`
     )
     
-    console.log(`[FAST] Classified ${fileName}: ${classification.documentType} (${Math.round(classification.confidence * 100)}%)`)
+    console.log(`[FAST] Classified ${fileName}: ${classification.documentType} (${Math.round(classification.confidence * 100)}%) after ${classification.attempts} attempt(s)`)
 
     // 4. Single DB write with all updates (clear retry count on success)
     documents[docIndex] = {
