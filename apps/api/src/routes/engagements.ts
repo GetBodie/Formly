@@ -136,6 +136,8 @@ app.patch('/:id', zValidator('json', UpdateEngagementSchema), async (c) => {
 
   if (body.storageFolderUrl !== undefined) {
     updateData.storageFolderUrl = body.storageFolderUrl
+    // Reset page token when folder URL changes (need fresh sync)
+    updateData.storagePageToken = null
   }
 
   if (body.storageProvider !== undefined) {
