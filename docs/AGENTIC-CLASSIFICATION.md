@@ -680,5 +680,86 @@ const classification = await classifyDocumentAgentic(extraction.markdown, fileNa
 ## Open Questions
 
 1. Should we cache extraction results between attempts? (probably yes)
-2. Should grader use LLM or be rule-based? (start rule-based, add LLM for edge cases)
+2. ~~Should grader use LLM or be rule-based?~~ **DECIDED: LLM-based grader** (see below)
 3. How to handle multi-page documents? (extract all pages, grade holistically)
+
+---
+
+## UPDATE: LLM-Based Grader
+
+The grader should be **LLM-based**, not rule-based. This allows:
+- Nuanced judgment ("this looks like a draft W-2, not final")
+- Better feedback generation (natural language, context-aware)
+- Catching edge cases rules would miss
+- Easier to extend without code changes
+
+### LLM Grader Prompt
+
+```typescript
+const GRADER_SYSTEM_PROMPT = `You are a tax document quality grader. Given an extraction attempt, evaluate whether it's good enough to accept.
+
+You receive:
+1. The extracted fields and their values
+2. The OCR text for reference
+3. The form template (expected fields)
+4. The attempt number (1-3)
+
+Your job:
+1. **Validate each field** - Is the format correct? Does the value make sense?
+2. **Check completeness** - Are the critical fields filled?
+3. **Detect problems** - Blank form? Wrong year? Inconsistent data?
+4. **Decide: PASS or FAIL**
+5. **If FAIL, provide specific feedback** for the extractor to try again
+
+GRADING CRITERIA:
+
+PASS if:
+- Document type is confidently identified
+- At least 70% of required fields are filled with valid values
+- No critical errors (wrong tax year, blank form)
+- Confidence ≥ threshold for this form type
+
+FAIL if:
+- Can't determine document type
+- Most required fields are empty/invalid
+- Document appears to be blank template
+- Tax year mismatch with expected year
+- Data is internally inconsistent
+
+FEEDBACK GUIDELINES (when FAIL):
+- Be specific: "Box 1 shows '$-' which isn't a valid amount"
+- Give location hints: "Look for employer EIN in the top-left, Box b"
+- Escalate strategy on later attempts:
+  - Attempt 2: "Consider if this might be a different form type"
+  - Attempt 3: "Focus only on the most critical fields. If still unclear, classify as OTHER"
+
+OUTPUT FORMAT:
+{
+  "pass": boolean,
+  "score": number (0-100),
+  "documentType": string (confirmed or corrected),
+  "confidence": number (0-1),
+  "fieldValidation": {
+    "fieldName": { "valid": boolean, "issue": string | null }
+  },
+  "issues": ["[SEVERITY:type:expected:actual] Description"],
+  "feedback": "Specific guidance for next attempt (if FAIL)",
+  "reasoning": "Brief explanation of your decision"
+}`
+```
+
+### Benefits of LLM Grader
+
+1. **Contextual judgment** — "This W-2 has wages but no tax withheld... that's unusual but valid for low earners"
+2. **Natural feedback** — Generates human-readable guidance, not robotic rule outputs
+3. **Adaptable** — Handles weird edge cases without code changes
+4. **Consistent with extractor** — Both use LLM, easier to reason about
+
+### Keep Some Rules
+
+Still use code-based validation for:
+- Format regex (SSN, EIN) — fast, deterministic
+- Tax year comparison — simple equality check
+- Confidence threshold — numeric comparison
+
+The LLM grader calls these helpers, but makes the final PASS/FAIL decision.
