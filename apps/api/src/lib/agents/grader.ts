@@ -5,7 +5,7 @@
  * an extraction is good enough, or generates feedback for retry.
  */
 
-import { FORM_TEMPLATES, GENERIC_TEMPLATE, type FormTemplate, type FormField } from '../form-templates.js'
+import { FORM_TEMPLATES, GENERIC_TEMPLATE } from '../form-templates.js'
 import type { ExtractionResult, ExtractedField } from './extractor.js'
 
 // ============================================
