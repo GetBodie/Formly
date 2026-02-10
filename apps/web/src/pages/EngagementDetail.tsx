@@ -44,8 +44,12 @@ function getDocStatus(doc: Document): 'error' | 'warning' | 'ok' {
   if (doc.approved) return 'ok'
   if (hasErrors(doc.issues)) return 'error'
   if (hasWarnings(doc.issues)) return 'warning'
-  if (doc.issues.length === 0 && doc.documentType !== 'PENDING') return 'ok'
-  return 'ok'
+  // #32: PENDING documents should show "Needs Review" not "OK"
+  if (doc.documentType === 'PENDING') return 'warning'
+  // #32: Low confidence documents need review even if no issues
+  if (doc.confidence < 0.7) return 'warning'
+  if (doc.issues.length === 0) return 'ok'
+  return 'warning'
 }
 
 function storageIcon(provider: string) {
