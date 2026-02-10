@@ -89,9 +89,9 @@ app.post(
       doc.override.reason = `Reclassified from ${doc.override.originalType} to ${newType}`
     }
     doc.documentType = newType
-    // #31: Don't auto-approve on reclassify - user should explicitly approve
-    // doc.approved = true
-    // doc.approvedAt = new Date().toISOString()
+    // #52: Reset approval status on reclassify - document needs re-review after type change
+    doc.approved = false
+    doc.approvedAt = null
 
     await prisma.engagement.update({
       where: { id: engagementId },

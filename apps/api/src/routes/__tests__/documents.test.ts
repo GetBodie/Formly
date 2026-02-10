@@ -130,6 +130,68 @@ describe('Document Routes', () => {
       expect(data.document.override.originalType).toBe('PENDING')
     })
 
+    it('resets approval status when reclassifying already-approved document (#52)', async () => {
+      const doc = createMockDocument({
+        id: 'doc_123',
+        documentType: 'W-2',
+        approved: true,
+        approvedAt: '2026-02-01T00:00:00.000Z',
+      })
+      const mockEngagement = createMockEngagement({
+        id: 'eng_123',
+        documents: [doc],
+      })
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+
+      const res = await app.request(
+        createRequest('/api/engagements/eng_123/documents/doc_123/reclassify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newType: '1099-NEC' }),
+        })
+      )
+
+      expect(res.status).toBe(200)
+      const data = await res.json() as any
+      expect(data.success).toBe(true)
+      expect(data.document.documentType).toBe('1099-NEC')
+      expect(data.document.approved).toBe(false)
+      expect(data.document.approvedAt).toBeNull()
+    })
+
+    it('allows multiple reclassifications preserving original type (#52)', async () => {
+      const doc = createMockDocument({
+        id: 'doc_123',
+        documentType: '1099-INT',
+        override: {
+          originalType: 'PENDING',
+          reason: 'Reclassified from PENDING to 1099-INT',
+        },
+      })
+      const mockEngagement = createMockEngagement({
+        id: 'eng_123',
+        documents: [doc],
+      })
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+
+      const res = await app.request(
+        createRequest('/api/engagements/eng_123/documents/doc_123/reclassify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newType: 'W-2' }),
+        })
+      )
+
+      expect(res.status).toBe(200)
+      const data = await res.json() as any
+      expect(data.success).toBe(true)
+      expect(data.document.documentType).toBe('W-2')
+      expect(data.document.override.originalType).toBe('PENDING')
+      expect(data.document.override.reason).toBe('Reclassified from PENDING to W-2')
+    })
+
     it('returns 400 for invalid document type', async () => {
       const doc = createMockDocument({ id: 'doc_123' })
       const mockEngagement = createMockEngagement({
