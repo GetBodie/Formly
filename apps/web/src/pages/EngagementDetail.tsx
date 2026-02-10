@@ -124,12 +124,17 @@ export default function EngagementDetail() {
     return () => clearInterval(interval)
   }, [id, engagement?.status])
 
-  // Sync selectedDocId to URL
+  // Sync selectedDocId to URL - #33: Add defensive check to prevent crashes on refresh
   useEffect(() => {
-    if (selectedDocId) {
-      setSearchParams({ doc: selectedDocId })
-    } else {
-      setSearchParams({})
+    try {
+      if (selectedDocId) {
+        setSearchParams({ doc: selectedDocId })
+      } else {
+        setSearchParams({})
+      }
+    } catch (e) {
+      // Ignore URL update errors during page refresh/navigation
+      console.warn('URL sync skipped:', e)
     }
   }, [selectedDocId, setSearchParams])
 
