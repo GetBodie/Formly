@@ -55,9 +55,11 @@ Document → OCR → [Extractor → Grader → Feedback]* → Result
 
 ---
 
-## Component 1: Form Templates
+## Component 1: Form Templates (Optional Hints)
 
-Define expected fields for each document type. This is the "schema" the extractor tries to fill.
+These are **optional hints**, not hard requirements. The LLM can classify and grade documents even without a matching template. Templates just help guide extraction for common forms.
+
+Start with a few key templates (W-2, 1099-NEC, 1099-INT). The LLM handles everything else.
 
 ```typescript
 // lib/form-templates.ts
@@ -763,3 +765,15 @@ Still use code-based validation for:
 - Confidence threshold — numeric comparison
 
 The LLM grader calls these helpers, but makes the final PASS/FAIL decision.
+
+### Why LLM > Hardcoded Templates
+
+**We don't want to enumerate every document type upfront.**
+
+The form templates in this spec are *hints*, not hard requirements. The LLM grader can:
+- Handle document types we haven't explicitly defined
+- Reason about edge cases ("this looks like a 1099-K, which we didn't template")
+- Judge quality holistically ("is this a real filled form or a blank?")
+- Adapt to regional/international variants
+
+This means we can launch with W-2 and 1099s well-defined, and the system gracefully handles everything else without code changes.
