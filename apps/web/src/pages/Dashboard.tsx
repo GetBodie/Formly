@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getEngagements, type Engagement } from '../api/client'
+import { getEngagements, deleteAllEngagements, type Engagement } from '../api/client'
 
 const statusConfig: Record<string, { label: string; dotColor: string; textColor: string; icon?: 'check' }> = {
   PENDING: { label: 'Pending', dotColor: 'bg-amber-400', textColor: 'text-amber-600' },
@@ -42,7 +42,48 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [clearing, setClearing] = useState(false)
   const navigate = useNavigate()
+  
+  // Triple-click detection for hidden reset
+  const clickCount = useRef(0)
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleTitleClick = () => {
+    clickCount.current += 1
+    
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current)
+    }
+    
+    if (clickCount.current === 3) {
+      // Triple-click detected - show confirmation
+      clickCount.current = 0
+      handleClearDemo()
+    } else {
+      // Reset after 500ms
+      clickTimer.current = setTimeout(() => {
+        clickCount.current = 0
+      }, 500)
+    }
+  }
+
+  const handleClearDemo = async () => {
+    if (!confirm('⚠️ Clear all demo data? This will delete ALL engagements and cannot be undone.')) {
+      return
+    }
+    
+    setClearing(true)
+    try {
+      const result = await deleteAllEngagements()
+      setEngagements([])
+      alert(`✅ Cleared ${result.count} engagements`)
+    } catch (err) {
+      alert(`❌ Failed to clear: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setClearing(false)
+    }
+  }
 
   useEffect(() => {
     getEngagements()
@@ -75,7 +116,12 @@ export default function Dashboard() {
     <div className="min-h-screen bg-white px-[160px] pt-[60px]">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Tax Intake Agent</h1>
+        <h1 
+          className="text-2xl font-semibold text-gray-900 select-none cursor-default"
+          onClick={handleTitleClick}
+        >
+          {clearing ? 'Clearing...' : 'Tax Intake Agent'}
+        </h1>
         <Link
           to="/engagements/new"
           className="inline-flex items-center gap-1.5 h-9 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

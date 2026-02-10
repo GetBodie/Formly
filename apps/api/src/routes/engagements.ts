@@ -329,4 +329,16 @@ app.delete('/:id', async (c) => {
   return c.json({ message: 'Engagement deleted successfully' })
 })
 
+// DELETE /api/engagements - Delete ALL engagements (for demo reset)
+app.delete('/', async (c) => {
+  const result = await prisma.engagement.deleteMany({})
+  
+  console.log(`[DEMO RESET] Deleted ${result.count} engagements`)
+  
+  return c.json({ 
+    message: 'All engagements deleted successfully',
+    count: result.count 
+  })
+})
+
 export default app
