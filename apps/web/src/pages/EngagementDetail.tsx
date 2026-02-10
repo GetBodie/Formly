@@ -44,8 +44,12 @@ function getDocStatus(doc: Document): 'error' | 'warning' | 'ok' {
   if (doc.approved) return 'ok'
   if (hasErrors(doc.issues)) return 'error'
   if (hasWarnings(doc.issues)) return 'warning'
-  if (doc.issues.length === 0 && doc.documentType !== 'PENDING') return 'ok'
-  return 'ok'
+  // #32: PENDING documents should show "Needs Review" not "OK"
+  if (doc.documentType === 'PENDING') return 'warning'
+  // #32: Low confidence documents need review even if no issues
+  if (doc.confidence < 0.7) return 'warning'
+  if (doc.issues.length === 0) return 'ok'
+  return 'warning'
 }
 
 function storageIcon(provider: string) {
@@ -693,12 +697,12 @@ function DocumentPanel({
         )}
 
         {/* Info section */}
-        <div className="px-4 mt-2 flex flex-col gap-3">
-          {/* Row 1: 3 items */}
-          <div className="flex items-start justify-between">
+        <div className="px-4 mt-3 flex flex-col gap-4">
+          {/* Row 1: 3 items - use grid for consistent alignment */}
+          <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Uploaded file</div>
-              <div className="text-sm text-black truncate">{doc.fileName}</div>
+              <div className="text-sm text-black truncate" title={doc.fileName}>{doc.fileName}</div>
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">System Detected</div>
@@ -709,13 +713,13 @@ function DocumentPanel({
               <div className="text-sm text-black">{Math.round(doc.confidence * 100)}%</div>
             </div>
           </div>
-          {/* Row 2: 2 items */}
-          <div className="flex items-start gap-[49px]">
-            <div className="flex flex-col gap-1 w-[145px]">
+          {/* Row 2: 2-3 items */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Tax Year</div>
               <div className="text-sm text-black">{doc.taxYear || 'Unknown'}</div>
             </div>
-            <div className="flex flex-col gap-1 flex-1">
+            <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Status</div>
               <div className="text-sm text-gray-700">
                 {doc.approved ? 'Approved' : 'Pending Review'}
