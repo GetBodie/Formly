@@ -133,6 +133,12 @@ export async function deleteEngagement(id: string): Promise<{ message: string }>
   })
 }
 
+export async function deleteAllEngagements(): Promise<{ message: string; count: number }> {
+  return fetchApi('/api/engagements', {
+    method: 'DELETE',
+  })
+}
+
 export async function generateBrief(id: string): Promise<{ success: boolean; brief: string }> {
   return fetchApi(`/api/engagements/${id}/brief`, {
     method: 'POST',
