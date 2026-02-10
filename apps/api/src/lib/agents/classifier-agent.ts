@@ -1,13 +1,12 @@
 /**
  * Classifier Agent - Claude Agent SDK with tool_use pattern
  * 
- * Claude orchestrates the extract → grade → feedback loop.
- * Tools define capabilities, Claude decides when to call them and when to stop.
+ * Claude orchestrates the extract → grade loop.
+ * Tools are "virtual" - Claude both calls and evaluates them.
+ * We just log and return acknowledgments.
  */
 
 import Anthropic from '@anthropic-ai/sdk'
-import { getFormTemplate, getKnownDocumentTypes } from '../form-templates.js'
-import { validateFormat } from './grader.js'
 
 const anthropic = new Anthropic()
 
@@ -31,13 +30,13 @@ export interface ClassificationResult {
 const tools: Anthropic.Tool[] = [
   {
     name: 'extract_fields',
-    description: `Extract fields from the OCR text. Try to identify the document type and fill in as many fields as possible. Only extract values you can actually see - don't hallucinate. Known form types: ${getKnownDocumentTypes().join(', ')}, RECEIPT, STATEMENT, OTHER.`,
+    description: 'Extract fields from the OCR text. Identify the document type and fill in as many fields as possible. Only extract values you can actually see - don\'t hallucinate.',
     input_schema: {
       type: 'object' as const,
       properties: {
         document_type: {
           type: 'string',
-          description: 'Best guess: W-2, 1099-NEC, 1099-INT, 1099-DIV, 1099-MISC, 1099-B, 1099-R, K-1, RECEIPT, STATEMENT, or OTHER'
+          description: 'Best guess: W-2, 1099-NEC, 1099-INT, 1099-DIV, 1099-MISC, K-1, RECEIPT, STATEMENT, or OTHER'
         },
         confidence: {
           type: 'number',
@@ -45,7 +44,7 @@ const tools: Anthropic.Tool[] = [
         },
         fields: {
           type: 'object',
-          description: 'Extracted field values. Keys are field names (e.g., employee_ssn, wages_tips), values are the extracted data.'
+          description: 'Extracted field values. Keys are field names, values are the extracted data.'
         },
         reasoning: {
           type: 'string',
@@ -57,14 +56,12 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: 'grade_extraction',
-    description: `Evaluate an extraction attempt. Check: Are required fields filled? Are formats valid (SSN, EIN, currency)? Is this a blank form? Does tax year match? Return PASS if good enough, FAIL with feedback if not. Use your judgment - you're the expert.`,
+    description: 'Evaluate an extraction attempt. Check: Are required fields filled? Are formats valid (SSN, EIN, currency)? Is this a blank form? Does tax year match? Return PASS if good enough, FAIL with feedback if not.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        pass: { type: 'boolean', description: 'Is this extraction good enough to accept?' },
+        pass: { type: 'boolean', description: 'Is this extraction good enough?' },
         score: { type: 'number', description: '0-100 quality score' },
-        document_type: { type: 'string', description: 'Confirmed or corrected document type' },
-        confidence: { type: 'number', description: 'Final confidence (0-1)' },
         issues: {
           type: 'array',
           items: { type: 'string' },
@@ -73,29 +70,9 @@ const tools: Anthropic.Tool[] = [
         feedback: {
           type: 'string',
           description: 'If FAIL, specific guidance for next extraction attempt'
-        },
-        reasoning: {
-          type: 'string',
-          description: 'Brief explanation of your grading decision'
         }
       },
-      required: ['pass', 'score', 'document_type', 'confidence', 'issues', 'reasoning']
-    }
-  },
-  {
-    name: 'validate_field_format',
-    description: 'Validate a field value against a specific format. Use this to check SSN, EIN, currency amounts, etc.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        value: { type: 'string', description: 'The value to validate' },
-        format: { 
-          type: 'string', 
-          enum: ['ssn', 'ein', 'currency', 'date', 'percentage'],
-          description: 'The format to validate against' 
-        }
-      },
-      required: ['value', 'format']
+      required: ['pass', 'score', 'issues']
     }
   }
 ]
@@ -104,78 +81,14 @@ const tools: Anthropic.Tool[] = [
 // TOOL EXECUTION
 // ============================================
 
-interface ExtractFieldsInput {
-  document_type: string
-  confidence: number
-  fields: Record<string, unknown>
-  reasoning: string
-}
-
-interface GradeExtractionInput {
-  pass: boolean
-  score: number
-  document_type: string
-  confidence: number
-  issues: string[]
-  feedback?: string
-  reasoning: string
-}
-
-interface ValidateFormatInput {
-  value: string
-  format: 'ssn' | 'ein' | 'currency' | 'date' | 'percentage'
-}
-
+/**
+ * Execute a tool call - tools are "virtual", Claude does the real work.
+ * We just log and return the input as acknowledgment.
+ */
 function executeToolCall(name: string, input: unknown): unknown {
-  // Log tool calls for debugging
   console.log(`[CLASSIFIER] Tool: ${name}`)
-  
-  switch (name) {
-    case 'extract_fields': {
-      // Extraction is done by Claude - we just acknowledge and optionally provide hints
-      const extraction = input as ExtractFieldsInput
-      const template = getFormTemplate(extraction.document_type)
-      
-      // Template hints are optional - LLM handles unknown types gracefully
-      const hint = template ? {
-        type: template.type,
-        displayName: template.displayName,
-        exampleFields: template.exampleFields.map(f => f.name),
-        confidenceThreshold: template.confidenceThreshold
-      } : null
-      
-      return {
-        status: 'ok',
-        extraction,
-        template_hint: hint
-      }
-    }
-    
-    case 'grade_extraction': {
-      // Grading is done by Claude's LLM reasoning - we just acknowledge
-      const grade = input as GradeExtractionInput
-      return {
-        status: 'ok',
-        grade
-      }
-    }
-    
-    case 'validate_field_format': {
-      // This is the one deterministic helper - format validation
-      const { value, format } = input as ValidateFormatInput
-      const result = validateFormat(value, format)
-      return {
-        status: 'ok',
-        value,
-        format,
-        valid: result.valid,
-        issue: result.issue || null
-      }
-    }
-    
-    default:
-      return { status: 'error', message: `Unknown tool: ${name}` }
-  }
+  // Return the input back - Claude uses this for its reasoning
+  return { status: 'ok', ...(input as object) }
 }
 
 // ============================================
@@ -205,54 +118,47 @@ export async function classifyDocumentAgentic(
     }
   }
 
-  const systemPrompt = `You are an expert tax document classifier. Your goal is to identify the document type and extract key fields.
+  const systemPrompt = `You are a tax document classifier. Your goal is to identify the document type and extract key fields.
 
 WORKFLOW:
-1. Call extract_fields to analyze the OCR text - identify the document type and extract all visible values
-2. Call grade_extraction to evaluate your extraction - is it good enough?
-3. If grade fails, call extract_fields again with the feedback (max 3 total attempts)
+1. Call extract_fields to analyze the OCR text
+2. Call grade_extraction to evaluate your extraction
+3. If grade fails, try extract_fields again with the feedback (max 3 attempts)
 4. When satisfied (or after 3 attempts), STOP calling tools and return your final answer
 
-VALIDATION:
-- Use validate_field_format to check SSN (XXX-XX-XXXX), EIN (XX-XXXXXXX), and currency formats
-- Don't hallucinate field values - only extract what you can actually see in the text
-- Blank forms (no filled values) should be classified as OTHER with low confidence
+RULES:
+- Don't hallucinate field values - only extract what you see
+- Blank forms (no filled values) should get low confidence
+- If tax year doesn't match ${expectedTaxYear || 'expected'}, flag it as an issue
+- After 3 failed attempts, return your best guess with low confidence
 
-TAX YEAR CHECK:
-${expectedTaxYear ? `- Expected tax year: ${expectedTaxYear}. If document shows a different year, flag it as [ERROR:wrong_year:${expectedTaxYear}:actual] in issues.` : '- No specific tax year expected.'}
-
-GRADING CRITERIA:
-- PASS if: Document type identified with ≥0.7 confidence, critical fields filled, no major errors
-- FAIL if: Can't identify type, most fields empty, blank form detected, wrong tax year, inconsistent data
-
-ON LATER ATTEMPTS:
-- Attempt 2: Consider if it might be a different form type
-- Attempt 3: Focus only on critical fields, accept partial results
-
-WHEN DONE (after PASS or 3 attempts), respond with ONLY this JSON (no tool calls):
+WHEN DONE, respond with this exact JSON format (no tool call):
 {
   "document_type": "W-2",
   "confidence": 0.85,
   "tax_year": 2024,
   "issues": ["[WARNING:...] description"],
-  "extracted_fields": { "wages_tips": 52000, "employee_ssn": "***-**-1234" },
+  "extracted_fields": { "wages": 52000, ... },
   "needs_human_review": false
 }
 
 ---
 FILE NAME: ${fileName}
-OCR TEXT (first 15000 chars):
+EXPECTED TAX YEAR: ${expectedTaxYear || 'any'}
+
+OCR TEXT:
 ${ocrText.slice(0, 15000)}`
 
   const messages: Anthropic.MessageParam[] = [
-    { role: 'user', content: 'Please classify this tax document. Use the tools to extract fields and grade your extraction.' }
+    { role: 'user', content: 'Please classify this document.' }
   ]
 
-  let attempts = 0
-  const maxAttempts = 10 // Safety limit on total tool calls
+  let iterations = 0
+  const maxIterations = 10 // Safety limit
 
-  while (attempts < maxAttempts) {
-    attempts++
+  // Agentic loop - Claude drives, we execute tools
+  while (iterations < maxIterations) {
+    iterations++
     
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -262,23 +168,23 @@ ${ocrText.slice(0, 15000)}`
       messages
     })
 
-    // Check if Claude is done (stop_reason is 'end' or no tool calls)
+    // Check if Claude is done (no more tool calls)
     const toolUseBlocks = response.content.filter(
       (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
     )
     
-    if (toolUseBlocks.length === 0 || response.stop_reason === 'end_turn') {
+    if (toolUseBlocks.length === 0) {
       // Claude is done - parse final answer from text
       const textBlock = response.content.find(
         (b): b is Anthropic.TextBlock => b.type === 'text'
       )
       
       if (textBlock) {
-        console.log(`[CLASSIFIER] Completed after ${attempts} API calls for ${fileName}`)
+        console.log(`[CLASSIFIER] Done after ${iterations} iterations for ${fileName}`)
         return parseClassificationResult(textBlock.text)
       }
       
-      // No text block - return fallback
+      // Fallback if no text
       return createFallbackResult('Classification ended without result')
     }
 
@@ -294,49 +200,40 @@ ${ocrText.slice(0, 15000)}`
       })
     }
 
-    // Add assistant response and tool results to conversation
+    // Add assistant message and tool result to conversation
     messages.push({ role: 'assistant', content: response.content })
     messages.push({ role: 'user', content: toolResults })
   }
 
   // Hit safety limit
-  console.log(`[CLASSIFIER] Hit max attempts (${maxAttempts}) for ${fileName}`)
+  console.log(`[CLASSIFIER] Hit max iterations (${maxIterations}) for ${fileName}`)
   return createFallbackResult('Classification loop exceeded maximum iterations')
 }
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPERS
 // ============================================
 
 function parseClassificationResult(text: string): ClassificationResult {
   try {
-    // Extract JSON from the response (handle markdown code blocks)
-    let jsonStr = text
-    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1]
-    } else {
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        jsonStr = jsonMatch[0]
+    // Extract JSON from the response
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      return {
+        documentType: parsed.document_type || 'OTHER',
+        confidence: parsed.confidence || 0.5,
+        taxYear: parsed.tax_year || null,
+        issues: parsed.issues || [],
+        extractedFields: parsed.extracted_fields || {},
+        needsHumanReview: parsed.needs_human_review || false
       }
-    }
-    
-    const parsed = JSON.parse(jsonStr)
-    
-    return {
-      documentType: parsed.document_type || 'OTHER',
-      confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-      taxYear: typeof parsed.tax_year === 'number' ? parsed.tax_year : null,
-      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
-      extractedFields: typeof parsed.extracted_fields === 'object' ? parsed.extracted_fields : {},
-      needsHumanReview: parsed.needs_human_review ?? false
     }
   } catch (e) {
     console.error('[CLASSIFIER] Failed to parse result:', e)
-    console.error('[CLASSIFIER] Raw text:', text.slice(0, 500))
-    return createFallbackResult('Could not parse classification result')
   }
+  
+  return createFallbackResult('Could not parse classification result')
 }
 
 function createFallbackResult(reason: string): ClassificationResult {
