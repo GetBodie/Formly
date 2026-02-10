@@ -115,6 +115,31 @@ See `apps/DEPLOY.md` for:
 - Railway deployment option
 - Troubleshooting guide
 
+## Custom Domain Setup
+
+To configure a custom domain (e.g., `demo.getbodie.ai`):
+
+### 1. Add in Render Dashboard
+
+1. Go to https://dashboard.render.com
+2. Select the **formly-web** service
+3. Click **Settings** → **Custom Domains**
+4. Click **Add Custom Domain**
+5. Enter your domain (e.g., `demo.getbodie.ai`)
+
+### 2. Configure DNS
+
+Add a CNAME record at your DNS provider:
+
+| Type | Name | Target |
+|------|------|--------|
+| CNAME | demo | formly-web.onrender.com |
+
+### 3. Verify
+
+- DNS propagation takes 5-30 minutes
+- Render auto-provisions SSL once DNS verifies
+
 ## Gotchas
 
 1. **Branch is `master`** - Render deploys from `master`, not `main`
