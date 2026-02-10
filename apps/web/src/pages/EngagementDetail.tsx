@@ -361,9 +361,9 @@ export default function EngagementDetail() {
         {/* 3 Stat Tiles */}
         <div className="flex gap-4 mb-6">
           {/* Documents Received */}
-          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-3 bg-white h-[96px] flex flex-col gap-2">
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between">
             <div className="text-sm text-gray-500">Documents Received</div>
-            <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-3">
               <span className="text-2xl font-semibold tracking-tight">{completionPct}%</span>
               <div className="flex-1">
                 <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
@@ -377,24 +377,24 @@ export default function EngagementDetail() {
           </div>
 
           {/* Docs Requiring Attention */}
-          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-3 bg-white h-[96px] flex flex-col gap-2">
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between">
             <div className="text-sm text-gray-500">Docs Requiring Attention</div>
-            <div className="flex flex-col gap-1 justify-center flex-1">
-              <div className="flex items-center gap-1 text-sm">
-                <span className="w-3 h-3 rounded-sm bg-red-600 inline-block flex-shrink-0" />
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className={`w-3 h-3 rounded-sm inline-block flex-shrink-0 ${errorDocs.length === 0 ? 'bg-green-500' : 'bg-red-600'}`} />
                 <span>{errorDocs.length} Needs Action</span>
               </div>
-              <div className="flex items-center gap-1 text-sm">
-                <span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block flex-shrink-0" />
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className={`w-3 h-3 rounded-sm inline-block flex-shrink-0 ${warningDocs.length === 0 ? 'bg-green-500' : 'bg-yellow-400'}`} />
                 <span>{warningDocs.length} Needs Review</span>
               </div>
             </div>
           </div>
 
           {/* Time Saved */}
-          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-3 bg-white h-[96px] flex flex-col gap-2">
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between">
             <div className="text-sm text-gray-500">Time Saved</div>
-            <div className="text-2xl font-semibold tracking-tight flex-1 flex items-center">{timeSaved}hrs</div>
+            <div className="text-2xl font-semibold tracking-tight">{timeSaved}hrs</div>
           </div>
         </div>
 
@@ -633,6 +633,7 @@ function DocumentPanel({
   actionInProgress,
 }: DocumentPanelProps) {
   const [selectedType, setSelectedType] = useState('')
+  const [showAllIssues, setShowAllIssues] = useState(false)
   const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
 
   const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
@@ -693,12 +694,12 @@ function DocumentPanel({
         )}
 
         {/* Info section */}
-        <div className="px-4 mt-2 flex flex-col gap-3">
-          {/* Row 1: 3 items */}
-          <div className="flex items-start justify-between">
+        <div className="px-4 mt-3 flex flex-col gap-4">
+          {/* Row 1: 3 items - use grid for consistent alignment */}
+          <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Uploaded file</div>
-              <div className="text-sm text-black truncate">{doc.fileName}</div>
+              <div className="text-sm text-black truncate" title={doc.fileName}>{doc.fileName}</div>
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">System Detected</div>
@@ -709,13 +710,13 @@ function DocumentPanel({
               <div className="text-sm text-black">{Math.round(doc.confidence * 100)}%</div>
             </div>
           </div>
-          {/* Row 2: 2 items */}
-          <div className="flex items-start gap-[49px]">
-            <div className="flex flex-col gap-1 w-[145px]">
+          {/* Row 2: 2-3 items */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Tax Year</div>
               <div className="text-sm text-black">{doc.taxYear || 'Unknown'}</div>
             </div>
-            <div className="flex flex-col gap-1 flex-1">
+            <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Status</div>
               <div className="text-sm text-gray-700">
                 {doc.approved ? 'Approved' : 'Pending Review'}
@@ -730,8 +731,8 @@ function DocumentPanel({
           </div>
         </div>
 
-        {/* Reclassify */}
-        {!doc.archived && !doc.approved && (
+        {/* Reclassify - #31: Allow changing type even after approval */}
+        {!doc.archived && (
           <div className="px-4 mt-3">
             <div className="flex gap-2">
               <select
@@ -766,12 +767,18 @@ function DocumentPanel({
             <div className="flex items-center justify-between px-4 mb-2">
               <h3 className="text-base font-semibold text-gray-900">Issues</h3>
               {friendlyIssues.length > 2 && (
-                <button className="text-sm font-medium text-blue-500 hover:text-blue-600">See All</button>
+                <button 
+                  className="text-sm font-medium text-blue-500 hover:text-blue-600"
+                  onClick={() => setShowAllIssues(!showAllIssues)}
+                >
+                  {showAllIssues ? 'Show Less' : 'See All'}
+                </button>
               )}
             </div>
 
             <div>
-              {friendlyIssues.map((issue, idx) => {
+              {/* #28: Limit to 2 issues unless "See All" is clicked */}
+              {(showAllIssues ? friendlyIssues : friendlyIssues.slice(0, 2)).map((issue, idx) => {
                 const isExpanded = expandedIssueIdx === idx
                 return (
                   <div key={idx}>

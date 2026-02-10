@@ -79,13 +79,19 @@ app.post(
     }
 
     const doc = documents[docIndex]
-    doc.override = {
-      originalType: doc.documentType,
-      reason: `Reclassified from ${doc.documentType} to ${newType}`,
+    // #31: Track original type if this is first reclassification, otherwise keep existing override
+    if (!doc.override) {
+      doc.override = {
+        originalType: doc.documentType,
+        reason: `Reclassified from ${doc.documentType} to ${newType}`,
+      }
+    } else {
+      doc.override.reason = `Reclassified from ${doc.override.originalType} to ${newType}`
     }
     doc.documentType = newType
-    doc.approved = true
-    doc.approvedAt = new Date().toISOString()
+    // #31: Don't auto-approve on reclassify - user should explicitly approve
+    // doc.approved = true
+    // doc.approvedAt = new Date().toISOString()
 
     await prisma.engagement.update({
       where: { id: engagementId },
