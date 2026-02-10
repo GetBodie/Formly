@@ -127,45 +127,56 @@ export const dropboxClient: StorageClient = {
 
     console.log(`[DROPBOX] Downloading file: ${fileId}${sharedLinkUrl ? ' (shared folder)' : ''}`)
 
+    // Determine the path to use for download
+    let filePath = fileId
+    if (!fileId.startsWith('/') && inputFileName) {
+      filePath = `/${inputFileName}`
+      console.log(`[DROPBOX] Legacy file ID detected, using path from fileName: ${filePath}`)
+    }
+
     try {
-      // For shared folders accessed via URL, use sharingGetSharedLinkFile
-      // The fileId for shared folders is the path (e.g., /filename.jpg) stored during sync
+      // For shared folders accessed via URL, try sharingGetSharedLinkFile first
+      // Falls back to direct download if shared link access is denied (e.g., same account)
       if (sharedLinkUrl) {
-        // Determine the path to use:
-        // - If fileId starts with /, it's already a path (new format)
-        // - Otherwise it's a legacy file ID, construct path from inputFileName
-        let filePath = fileId
-        if (!fileId.startsWith('/') && inputFileName) {
-          filePath = `/${inputFileName}`
-          console.log(`[DROPBOX] Legacy file ID detected, using path from fileName: ${filePath}`)
-        }
-        console.log(`[DROPBOX] Using shared link download with path: ${filePath}`)
+        console.log(`[DROPBOX] Trying shared link download with path: ${filePath}`)
 
-        const response = await dbx.sharingGetSharedLinkFile({
-          url: sharedLinkUrl,
-          path: filePath
-        })
+        try {
+          const response = await dbx.sharingGetSharedLinkFile({
+            url: sharedLinkUrl,
+            path: filePath
+          })
 
-        const result = response.result as unknown as { fileBinary: Buffer; name: string; size: number }
-        const fileBlob = result.fileBinary
-        const fileName = result.name
-        const size = result.size || fileBlob.length
+          const result = response.result as unknown as { fileBinary: Buffer; name: string; size: number }
+          const fileBlob = result.fileBinary
+          const fileName = result.name
+          const size = result.size || fileBlob.length
 
-        console.log(`[DROPBOX] Downloaded ${fileBlob.length} bytes via shared link`)
+          console.log(`[DROPBOX] Downloaded ${fileBlob.length} bytes via shared link`)
 
-        // Validate file size
-        if (size > MAX_FILE_SIZE) {
-          throw new DocumentTooLargeError(
-            `File ${fileName} is ${(size / 1024 / 1024).toFixed(1)}MB, ` +
-              `exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit. Please compress and re-upload.`
-          )
-        }
+          // Validate file size
+          if (size > MAX_FILE_SIZE) {
+            throw new DocumentTooLargeError(
+              `File ${fileName} is ${(size / 1024 / 1024).toFixed(1)}MB, ` +
+                `exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit. Please compress and re-upload.`
+            )
+          }
 
-        return {
-          buffer: Buffer.from(fileBlob),
-          mimeType: getMimeType(fileName),
-          fileName,
-          size,
+          return {
+            buffer: Buffer.from(fileBlob),
+            mimeType: getMimeType(fileName),
+            fileName,
+            size,
+          }
+        } catch (sharedLinkError: unknown) {
+          // If shared link access is denied, fall back to direct download
+          // This happens when the shared link is for a folder owned by the same account
+          const errorStr = String(sharedLinkError)
+          if (errorStr.includes('shared_link_access_denied') || errorStr.includes('409')) {
+            console.log(`[DROPBOX] Shared link access denied, falling back to direct download for: ${filePath}`)
+            // Fall through to direct download below
+          } else {
+            throw sharedLinkError
+          }
         }
       }
 
