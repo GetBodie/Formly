@@ -543,91 +543,184 @@ function validateFormat(
 
 ---
 
-## Component 4: The Loop Orchestrator
+## Component 4: Claude Agent SDK (Agentic Loop)
 
-Ties it all together.
+Use the **Claude Agent SDK** (`@anthropic-ai/sdk`) with tool use. Claude orchestrates the loop — we define tools, Claude decides when to call them and when to stop.
 
 ```typescript
 // lib/agents/classifier-agent.ts
 
-interface ClassificationResult {
-  documentType: string
-  confidence: number
-  taxYear: number | null
-  issues: string[]
-  extractedFields: Record<string, unknown>  // Bonus: we now have structured data
-  attempts: number
-}
+import Anthropic from '@anthropic-ai/sdk'
 
-const MAX_ATTEMPTS = 3
+const anthropic = new Anthropic()
+
+// Define the tools Claude can use
+const tools: Anthropic.Tool[] = [
+  {
+    name: 'extract_fields',
+    description: `Extract fields from the OCR text. Try to identify the document type and fill in as many fields as possible. Only extract values you can actually see - don't hallucinate.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_type: {
+          type: 'string',
+          description: 'Best guess: W-2, 1099-NEC, 1099-INT, 1099-DIV, 1099-MISC, K-1, RECEIPT, STATEMENT, or OTHER'
+        },
+        confidence: {
+          type: 'number',
+          description: '0-1 confidence in the classification'
+        },
+        fields: {
+          type: 'object',
+          description: 'Extracted field values. Keys are field names, values are the extracted data.'
+        },
+        reasoning: {
+          type: 'string',
+          description: 'Why you chose this classification'
+        }
+      },
+      required: ['document_type', 'confidence', 'fields', 'reasoning']
+    }
+  },
+  {
+    name: 'grade_extraction',
+    description: `Evaluate an extraction attempt. Check: Are required fields filled? Are formats valid (SSN, EIN, currency)? Is this a blank form? Does tax year match? Return PASS if good enough, FAIL with feedback if not.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        pass: { type: 'boolean', description: 'Is this extraction good enough?' },
+        score: { type: 'number', description: '0-100 quality score' },
+        issues: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of issues found (format: [SEVERITY:type:expected:actual] Description)'
+        },
+        feedback: {
+          type: 'string',
+          description: 'If FAIL, specific guidance for next extraction attempt'
+        }
+      },
+      required: ['pass', 'score', 'issues']
+    }
+  },
+  {
+    name: 'finalize_classification',
+    description: `Call this when you're confident in the classification OR have exhausted attempts (max 3). Returns the final result.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_type: { type: 'string' },
+        confidence: { type: 'number' },
+        tax_year: { type: 'number', nullable: true },
+        issues: { type: 'array', items: { type: 'string' } },
+        extracted_fields: { type: 'object' },
+        needs_human_review: { type: 'boolean' }
+      },
+      required: ['document_type', 'confidence', 'issues', 'needs_human_review']
+    }
+  }
+]
 
 export async function classifyDocumentAgentic(
   ocrText: string,
   fileName: string,
   expectedTaxYear?: number
 ): Promise<ClassificationResult> {
-  let feedback: string | undefined
-  let lastExtraction: ExtractionResult | null = null
-  let lastGrade: GradeResult | null = null
   
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    console.log(`[CLASSIFIER] Attempt ${attempt}/${MAX_ATTEMPTS} for ${fileName}`)
-    
-    // Step 1: Extract
-    const extraction = await extract(ocrText, fileName, feedback, expectedTaxYear)
-    lastExtraction = extraction
-    
-    console.log(`[CLASSIFIER] Extracted as ${extraction.likelyType} (${(extraction.overallConfidence * 100).toFixed(0)}% confidence)`)
-    
-    // Step 2: Grade
-    const grade = await grade({
-      extraction,
-      ocrText,
-      fileName,
-      expectedTaxYear,
-      attemptNumber: attempt
+  const systemPrompt = `You are a tax document classifier. Your goal is to identify the document type and extract key fields.
+
+WORKFLOW:
+1. Call extract_fields to analyze the OCR text
+2. Call grade_extraction to evaluate your extraction
+3. If grade fails, try extract_fields again with the feedback (max 3 attempts)
+4. Call finalize_classification when done
+
+RULES:
+- Don't hallucinate field values - only extract what you see
+- Blank forms (no filled values) should get low confidence and needs_human_review=true
+- If tax year doesn't match ${expectedTaxYear || 'expected'}, flag it as an issue
+- After 3 failed attempts, finalize with needs_human_review=true
+
+OCR TEXT:
+${ocrText.slice(0, 15000)}
+
+FILE NAME: ${fileName}
+EXPECTED TAX YEAR: ${expectedTaxYear || 'any'}`
+
+  const messages: Anthropic.MessageParam[] = [
+    { role: 'user', content: 'Please classify this document.' }
+  ]
+
+  // Agentic loop - Claude drives, we execute tools
+  let result: ClassificationResult | null = null
+  
+  while (!result) {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      system: systemPrompt,
+      tools,
+      messages
     })
-    lastGrade = grade
-    
-    console.log(`[CLASSIFIER] Grade: ${grade.pass ? 'PASS' : 'FAIL'} (score: ${grade.score})`)
-    
-    // Step 3: Check if we're done
-    if (grade.pass) {
-      return {
-        documentType: grade.documentType,
-        confidence: grade.confidence,
-        taxYear: extraction.fields['tax_year']?.value as number | null,
-        issues: grade.issues,
-        extractedFields: Object.fromEntries(
-          Object.entries(extraction.fields)
-            .filter(([_, v]) => v.value !== null)
-            .map(([k, v]) => [k, v.value])
-        ),
-        attempts: attempt
+
+    // Process tool calls
+    for (const block of response.content) {
+      if (block.type === 'tool_use') {
+        const toolResult = await executeToolCall(block.name, block.input)
+        
+        // Add assistant message and tool result to conversation
+        messages.push({ role: 'assistant', content: response.content })
+        messages.push({
+          role: 'user',
+          content: [{
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(toolResult)
+          }]
+        })
+        
+        // Check if we're done
+        if (block.name === 'finalize_classification') {
+          result = toolResult as ClassificationResult
+        }
       }
     }
-    
-    // Step 4: Prepare feedback for next attempt
-    feedback = grade.feedback
-    console.log(`[CLASSIFIER] Feedback: ${feedback.slice(0, 200)}...`)
+
+    // Safety: if Claude stops without finalizing, force finalize
+    if (response.stop_reason === 'end_turn' && !result) {
+      result = {
+        documentType: 'OTHER',
+        confidence: 0.3,
+        taxYear: null,
+        issues: ['[WARNING:incomplete::] Classification did not complete properly'],
+        extractedFields: {},
+        needsHumanReview: true
+      }
+    }
   }
+
+  return result
+}
+
+// Tool execution - these are simple pass-throughs since Claude does the real work
+async function executeToolCall(name: string, input: unknown): Promise<unknown> {
+  console.log(`[CLASSIFIER] Tool call: ${name}`, input)
   
-  // Exhausted attempts - return best effort with low confidence
-  console.log(`[CLASSIFIER] Max attempts reached for ${fileName}`)
+  // Tools are "virtual" - Claude both calls and evaluates them
+  // We just log and return the input as acknowledgment
+  // The real logic is in Claude's reasoning
   
-  return {
-    documentType: lastGrade?.documentType || 'OTHER',
-    confidence: Math.min(lastExtraction?.overallConfidence || 0.3, 0.5),
-    taxYear: lastExtraction?.fields['tax_year']?.value as number | null,
-    issues: [
-      ...(lastGrade?.issues || []),
-      '[WARNING:low_confidence::] Document could not be confidently classified after multiple attempts. Manual review recommended.'
-    ],
-    extractedFields: {},
-    attempts: MAX_ATTEMPTS
-  }
+  return { status: 'ok', ...input as object }
 }
 ```
+
+### Why Claude Agent SDK?
+
+1. **Claude controls the loop** — Decides when to retry, when to give up
+2. **Natural agentic pattern** — Tools define capabilities, Claude orchestrates
+3. **Better reasoning** — Claude is excellent at self-critique (grading its own extractions)
+4. **Flexible** — Easy to add new tools without changing loop logic
+5. **No hardcoded templates needed** — Claude generalizes to any document type
 
 ---
 
@@ -671,11 +764,17 @@ const classification = await classifyDocumentAgentic(extraction.markdown, fileNa
 
 ## Files to Create
 
-1. `apps/api/src/lib/form-templates.ts` — Form schemas
-2. `apps/api/src/lib/agents/extractor.ts` — Field extraction
-3. `apps/api/src/lib/agents/grader.ts` — Quality validation
-4. `apps/api/src/lib/agents/classifier-agent.ts` — Loop orchestrator
-5. Update `apps/api/src/lib/agents/assessment-fast.ts` — Integration
+1. `apps/api/src/lib/agents/classifier-agent.ts` — Claude Agent SDK agentic loop (THE MAIN FILE)
+2. `apps/api/src/lib/form-templates.ts` — Optional hints for common forms
+3. Update `apps/api/src/lib/agents/assessment-fast.ts` — Swap in new classifier
+
+## Dependencies
+
+```bash
+npm install @anthropic-ai/sdk
+```
+
+Requires `ANTHROPIC_API_KEY` env var.
 
 ---
 
