@@ -52,6 +52,15 @@ function getDocStatus(doc: Document): 'error' | 'warning' | 'ok' {
   return 'warning'
 }
 
+function formatStorageProvider(provider: string): string {
+  const map: Record<string, string> = {
+    'sharepoint': 'SharePoint',
+    'googledrive': 'Google Drive',
+    'dropbox': 'Dropbox'
+  }
+  return map[provider?.toLowerCase()] || provider
+}
+
 function storageIcon(provider: string) {
   switch (provider?.toLowerCase()) {
     case 'sharepoint':
@@ -362,15 +371,15 @@ export default function EngagementDetail() {
               className="text-sm font-medium inline-flex items-center gap-2 text-blue-500 hover:text-blue-600"
             >
               {storageIcon(engagement.storageProvider)}
-              {engagement.storageProvider}
+              {formatStorageProvider(engagement.storageProvider)}
             </a>
           </div>
         </div>
 
         {/* 3 Stat Tiles */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex gap-4 mb-6 items-stretch">
           {/* Documents Received */}
-          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between">
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between items-start">
             <div className="text-sm text-gray-500">Documents Received</div>
             <div className="flex items-center gap-3">
               <span className="text-2xl font-semibold tracking-tight">{completionPct}%</span>
@@ -386,7 +395,7 @@ export default function EngagementDetail() {
           </div>
 
           {/* Docs Requiring Attention */}
-          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between">
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between items-start">
             <div className="text-sm text-gray-500">Docs Requiring Attention</div>
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5 text-sm">
@@ -401,7 +410,7 @@ export default function EngagementDetail() {
           </div>
 
           {/* Time Saved */}
-          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between">
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between items-start">
             <div className="text-sm text-gray-500">Time Saved</div>
             <div className="text-2xl font-semibold tracking-tight">{timeSaved}hrs</div>
           </div>
@@ -440,7 +449,7 @@ export default function EngagementDetail() {
                       } ${doc.archived ? 'opacity-50' : ''}`}
                     >
                       <div className={`truncate ${doc.archived ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                        {doc.documentType}
+                        {doc.documentType === 'PENDING' ? 'Processing...' : doc.documentType}
                       </div>
                       <div>
                         {status === 'error' ? (
@@ -469,7 +478,7 @@ export default function EngagementDetail() {
           </div>
 
           {/* Chevron Separator */}
-          <div className="flex-shrink-0 flex items-start justify-center pt-[44px]">
+          <div className="flex-shrink-0 flex items-start justify-center pt-[44px] px-2">
             <svg className="w-6 h-6 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 18l6-6-6-6" />
             </svg>
@@ -712,7 +721,7 @@ function DocumentPanel({
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">System Detected</div>
-              <div className="text-sm text-black">{doc.documentType}</div>
+              <div className="text-sm text-black">{doc.documentType === 'PENDING' ? 'Processing...' : doc.documentType}</div>
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Confidence</div>
@@ -844,11 +853,11 @@ function DocumentPanel({
 
       {/* Action buttons at bottom */}
       {hasUnresolvedIssues && !doc.archived && (
-        <div className="px-4 py-3 flex gap-2 justify-end">
+        <div className="px-4 py-3 flex gap-3 justify-end">
           <button
             onClick={() => onApprove(doc.id)}
             disabled={actionInProgress !== null}
-            className="inline-flex items-center gap-1.5 h-8 px-3 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 h-8 px-4 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
             {actionInProgress === 'approve' ? 'Approving...' : 'Approve Anyway'}
@@ -856,7 +865,7 @@ function DocumentPanel({
           <button
             onClick={() => onOpenEmail(doc.id)}
             disabled={actionInProgress !== null}
-            className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 h-8 px-4 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
             Generate Email Follow-Up
