@@ -18,6 +18,7 @@
     "cleanup:confirm": "tsx ../../scripts/cleanup-test-data.ts --confirm"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
     "@azure/identity": "^4.13.0",
     "@hono/node-server": "^1.14.1",
     "@hono/zod-validator": "^0.7.6",

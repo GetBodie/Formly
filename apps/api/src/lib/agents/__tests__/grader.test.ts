@@ -1,6 +1,9 @@
 /**
- * Unit tests for the Grader module
- * Tests format validators, blank form detection, cross-reference checks, and grading logic
+ * Unit tests for the Grader utilities
+ * Tests format validators and utility functions
+ * 
+ * Note: The actual PASS/FAIL grading is now done by Claude LLM.
+ * These tests cover the deterministic format validation helpers.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -13,384 +16,257 @@ import {
   validateFormat,
   isBlankForm,
   countFilledFields,
-  crossCheckW2,
-  crossCheck1099,
-  grade,
-  type GraderContext
+  parseCurrency,
 } from '../grader.js'
-import type { ExtractionResult, ExtractedField } from '../extractor.js'
 
 // ============================================
-// FORMAT VALIDATORS
+// SSN VALIDATION
 // ============================================
 
-describe('Format Validators', () => {
-  describe('validateSSN', () => {
-    it('should accept valid SSN with dashes', () => {
-      expect(validateSSN('123-45-6789').valid).toBe(true)
-    })
-
-    it('should accept valid SSN without dashes', () => {
-      expect(validateSSN('123456789').valid).toBe(true)
-    })
-
-    it('should accept masked SSN', () => {
-      expect(validateSSN('***-**-6789').valid).toBe(true)
-      expect(validateSSN('XXX-XX-6789').valid).toBe(true)
-    })
-
-    it('should reject invalid SSN', () => {
-      expect(validateSSN('123-45-678').valid).toBe(false)
-      expect(validateSSN('12-345-6789').valid).toBe(false)
-      expect(validateSSN('abc-de-fghi').valid).toBe(false)
-    })
+describe('validateSSN', () => {
+  it('should accept valid SSN with dashes', () => {
+    expect(validateSSN('123-45-6789').valid).toBe(true)
   })
 
-  describe('validateEIN', () => {
-    it('should accept valid EIN with dash', () => {
-      expect(validateEIN('12-3456789').valid).toBe(true)
-    })
-
-    it('should accept valid EIN without dash', () => {
-      expect(validateEIN('123456789').valid).toBe(true)
-    })
-
-    it('should reject invalid EIN', () => {
-      expect(validateEIN('1-23456789').valid).toBe(false)
-      expect(validateEIN('123-456789').valid).toBe(false)
-      expect(validateEIN('12345678').valid).toBe(false)
-    })
+  it('should accept valid SSN without dashes', () => {
+    expect(validateSSN('123456789').valid).toBe(true)
   })
 
-  describe('validateCurrency', () => {
-    it('should accept positive currency amounts', () => {
-      expect(validateCurrency('1234.56').valid).toBe(true)
-      expect(validateCurrency('$1,234.56').valid).toBe(true)
-      expect(validateCurrency('1234').valid).toBe(true)
-      expect(validateCurrency(50000).valid).toBe(true)
-    })
-
-    it('should accept negative currency amounts', () => {
-      expect(validateCurrency('-1234.56').valid).toBe(true)
-    })
-
-    it('should accept zero', () => {
-      expect(validateCurrency('0').valid).toBe(true)
-      expect(validateCurrency(0).valid).toBe(true)
-    })
-
-    it('should reject invalid currency', () => {
-      expect(validateCurrency('abc').valid).toBe(false)
-      expect(validateCurrency('1234.567').valid).toBe(false)
-    })
+  it('should accept masked SSN', () => {
+    expect(validateSSN('***-**-6789').valid).toBe(true)
+    expect(validateSSN('XXX-XX-6789').valid).toBe(true)
   })
 
-  describe('validateDate', () => {
-    it('should accept valid dates', () => {
-      expect(validateDate('2024-01-15').valid).toBe(true)
-      expect(validateDate('January 15, 2024').valid).toBe(true)
-    })
-
-    it('should reject invalid dates', () => {
-      expect(validateDate('not a date').valid).toBe(false)
-    })
+  it('should reject invalid SSN - wrong length', () => {
+    expect(validateSSN('123-45-678').valid).toBe(false)
+    expect(validateSSN('12-345-6789').valid).toBe(false)
   })
 
-  describe('validatePercentage', () => {
-    it('should accept valid percentages', () => {
-      expect(validatePercentage('10%').valid).toBe(true)
-      expect(validatePercentage('10.5%').valid).toBe(true)
-      expect(validatePercentage('10.5').valid).toBe(true)
-      expect(validatePercentage(25).valid).toBe(true)
-    })
-
-    it('should reject invalid percentages', () => {
-      expect(validatePercentage('-10%').valid).toBe(false)
-      expect(validatePercentage('abc%').valid).toBe(false)
-    })
+  it('should reject invalid SSN - letters', () => {
+    expect(validateSSN('abc-de-fghi').valid).toBe(false)
   })
 
-  describe('validateFormat (generic)', () => {
-    it('should accept any value when no format specified', () => {
-      expect(validateFormat('anything').valid).toBe(true)
-    })
-
-    it('should validate against regex', () => {
-      const yearRegex = /^20\d{2}$/
-      expect(validateFormat('2024', yearRegex).valid).toBe(true)
-      expect(validateFormat('1999', yearRegex).valid).toBe(false)
-    })
-
-    it('should handle null/empty values gracefully', () => {
-      expect(validateFormat(null, 'ssn').valid).toBe(true)
-      expect(validateFormat('', 'ssn').valid).toBe(true)
-    })
+  it('should handle whitespace', () => {
+    expect(validateSSN(' 123-45-6789 ').valid).toBe(true)
   })
 })
 
 // ============================================
-// BLANK FORM DETECTION
+// EIN VALIDATION
 // ============================================
 
-describe('Blank Form Detection', () => {
-  describe('isBlankForm', () => {
-    it('should detect empty fields object as blank', () => {
-      expect(isBlankForm({})).toBe(true)
-    })
-
-    it('should detect all-null fields as blank', () => {
-      const fields: Record<string, ExtractedField> = {
-        field1: { value: null, confidence: 0 },
-        field2: { value: null, confidence: 0 },
-      }
-      expect(isBlankForm(fields)).toBe(true)
-    })
-
-    it('should detect all-empty strings as blank', () => {
-      const fields: Record<string, ExtractedField> = {
-        field1: { value: '', confidence: 0 },
-        field2: { value: '', confidence: 0 },
-      }
-      expect(isBlankForm(fields)).toBe(true)
-    })
-
-    it('should detect all-zero numbers as blank', () => {
-      const fields: Record<string, ExtractedField> = {
-        field1: { value: 0, confidence: 0 },
-        field2: { value: 0, confidence: 0 },
-      }
-      expect(isBlankForm(fields)).toBe(true)
-    })
-
-    it('should NOT detect form with values as blank', () => {
-      const fields: Record<string, ExtractedField> = {
-        field1: { value: '123-45-6789', confidence: 0.9 },
-        field2: { value: null, confidence: 0 },
-      }
-      expect(isBlankForm(fields)).toBe(false)
-    })
+describe('validateEIN', () => {
+  it('should accept valid EIN with dash', () => {
+    expect(validateEIN('12-3456789').valid).toBe(true)
   })
 
-  describe('countFilledFields', () => {
-    it('should count fields with actual values', () => {
-      const fields: Record<string, ExtractedField> = {
-        field1: { value: '123-45-6789', confidence: 0.9 },
-        field2: { value: null, confidence: 0 },
-        field3: { value: 50000, confidence: 0.8 },
-        field4: { value: '', confidence: 0 },
-      }
-      expect(countFilledFields(fields)).toBe(2)
-    })
+  it('should accept valid EIN without dash', () => {
+    expect(validateEIN('123456789').valid).toBe(true)
+  })
 
-    it('should return 0 for empty fields', () => {
-      expect(countFilledFields({})).toBe(0)
-    })
+  it('should reject invalid EIN - wrong dash position', () => {
+    expect(validateEIN('1-23456789').valid).toBe(false)
+    expect(validateEIN('123-456789').valid).toBe(false)
+  })
+
+  it('should reject invalid EIN - wrong length', () => {
+    expect(validateEIN('12345678').valid).toBe(false)
+    expect(validateEIN('1234567890').valid).toBe(false)
   })
 })
 
 // ============================================
-// CROSS-REFERENCE CHECKS
+// CURRENCY VALIDATION
 // ============================================
 
-describe('Cross-Reference Checks', () => {
-  describe('crossCheckW2', () => {
-    it('should pass valid W-2 data', () => {
-      const fields: Record<string, ExtractedField> = {
-        wages_tips: { value: 50000, confidence: 0.9 },
-        ss_wages: { value: 50000, confidence: 0.9 },
-        medicare_wages: { value: 50000, confidence: 0.9 },
-        federal_tax_withheld: { value: 5000, confidence: 0.9 },
-      }
-      const issues = crossCheckW2(fields)
-      expect(issues.length).toBe(0)
-    })
-
-    it('should flag SS wages exceeding total wages', () => {
-      const fields: Record<string, ExtractedField> = {
-        wages_tips: { value: 50000, confidence: 0.9 },
-        ss_wages: { value: 60000, confidence: 0.9 }, // More than 110% of wages
-      }
-      const issues = crossCheckW2(fields)
-      expect(issues.some(i => i.message.includes('Social security wages exceed'))).toBe(true)
-    })
-
-    it('should flag federal tax withheld exceeding wages', () => {
-      const fields: Record<string, ExtractedField> = {
-        wages_tips: { value: 50000, confidence: 0.9 },
-        federal_tax_withheld: { value: 60000, confidence: 0.9 },
-      }
-      const issues = crossCheckW2(fields)
-      expect(issues.some(i => i.message.includes('Federal tax withheld exceeds'))).toBe(true)
-    })
-
-    it('should flag negative wages', () => {
-      const fields: Record<string, ExtractedField> = {
-        wages_tips: { value: -5000, confidence: 0.9 },
-      }
-      const issues = crossCheckW2(fields)
-      expect(issues.some(i => i.message.includes('Wages cannot be negative'))).toBe(true)
-    })
-
-    it('should handle currency formatted values', () => {
-      const fields: Record<string, ExtractedField> = {
-        wages_tips: { value: '$50,000.00', confidence: 0.9 },
-        federal_tax_withheld: { value: '$5,000.00', confidence: 0.9 },
-      }
-      const issues = crossCheckW2(fields)
-      expect(issues.length).toBe(0)
-    })
+describe('validateCurrency', () => {
+  it('should accept positive amounts', () => {
+    expect(validateCurrency('1234.56').valid).toBe(true)
+    expect(validateCurrency('$1,234.56').valid).toBe(true)
+    expect(validateCurrency('1234').valid).toBe(true)
+    expect(validateCurrency(50000).valid).toBe(true)
   })
 
-  describe('crossCheck1099', () => {
-    it('should pass valid 1099-NEC data', () => {
-      const fields: Record<string, ExtractedField> = {
-        nonemployee_compensation: { value: 25000, confidence: 0.9 },
-        federal_tax_withheld: { value: 2500, confidence: 0.9 },
-      }
-      const issues = crossCheck1099(fields, '1099-NEC')
-      expect(issues.length).toBe(0)
-    })
+  it('should accept negative amounts', () => {
+    expect(validateCurrency('-1234.56').valid).toBe(true)
+    expect(validateCurrency('-$1,234.56').valid).toBe(true)
+  })
 
-    it('should flag withheld exceeding income', () => {
-      const fields: Record<string, ExtractedField> = {
-        nonemployee_compensation: { value: 25000, confidence: 0.9 },
-        federal_tax_withheld: { value: 30000, confidence: 0.9 },
-      }
-      const issues = crossCheck1099(fields, '1099-NEC')
-      expect(issues.some(i => i.message.includes('Federal tax withheld exceeds income'))).toBe(true)
-    })
+  it('should accept zero', () => {
+    expect(validateCurrency('0').valid).toBe(true)
+    expect(validateCurrency(0).valid).toBe(true)
+    expect(validateCurrency('$0.00').valid).toBe(true)
+  })
+
+  it('should accept amounts with commas', () => {
+    expect(validateCurrency('1,000,000.00').valid).toBe(true)
+    expect(validateCurrency('$1,000,000').valid).toBe(true)
+  })
+
+  it('should reject invalid currency', () => {
+    expect(validateCurrency('abc').valid).toBe(false)
+    expect(validateCurrency('1234.567').valid).toBe(false) // Too many decimals
+    expect(validateCurrency('$abc').valid).toBe(false)
   })
 })
 
 // ============================================
-// GRADER INTEGRATION
+// DATE VALIDATION
 // ============================================
 
-describe('Grade Function', () => {
-  const createMockExtraction = (overrides: Partial<ExtractionResult> = {}): ExtractionResult => ({
-    likelyType: 'W-2',
-    alternativeTypes: ['1099-MISC'],
-    fields: {
-      employee_ssn: { value: '123-45-6789', confidence: 0.95 },
-      employer_ein: { value: '12-3456789', confidence: 0.9 },
-      employer_name: { value: 'ACME Corporation', confidence: 0.95 },
-      wages_tips: { value: 75000, confidence: 0.9 },
-      federal_tax_withheld: { value: 8500, confidence: 0.9 },
-      tax_year: { value: '2024', confidence: 0.95 },
-    },
-    overallConfidence: 0.85,
-    reasoning: 'Test extraction',
-    ...overrides,
+describe('validateDate', () => {
+  it('should accept valid ISO dates', () => {
+    expect(validateDate('2024-01-15').valid).toBe(true)
+    expect(validateDate('2024-12-31').valid).toBe(true)
   })
 
-  const createMockContext = (extraction: ExtractionResult, overrides: Partial<GraderContext> = {}): GraderContext => ({
-    extraction,
-    ocrText: 'Sample OCR text',
-    fileName: 'test-w2.pdf',
-    expectedTaxYear: 2024,
-    attemptNumber: 1,
-    ...overrides,
+  it('should accept human-readable dates', () => {
+    expect(validateDate('January 15, 2024').valid).toBe(true)
+    expect(validateDate('Jan 15, 2024').valid).toBe(true)
   })
 
-  it('should pass a valid W-2 extraction', async () => {
-    const extraction = createMockExtraction()
-    const context = createMockContext(extraction)
-    
-    const result = await grade(context)
-    
-    expect(result.pass).toBe(true)
-    expect(result.documentType).toBe('W-2')
-    expect(result.confidence).toBeGreaterThanOrEqual(0.8)
-    expect(result.issues.length).toBe(0)
+  it('should reject invalid dates', () => {
+    expect(validateDate('not a date').valid).toBe(false)
+    expect(validateDate('13/45/2024').valid).toBe(false)
+  })
+})
+
+// ============================================
+// PERCENTAGE VALIDATION
+// ============================================
+
+describe('validatePercentage', () => {
+  it('should accept valid percentages', () => {
+    expect(validatePercentage('10%').valid).toBe(true)
+    expect(validatePercentage('10.5%').valid).toBe(true)
+    expect(validatePercentage('10.5').valid).toBe(true)
+    expect(validatePercentage(25).valid).toBe(true)
   })
 
-  it('should fail a blank form', async () => {
-    const extraction = createMockExtraction({
-      fields: {
-        employee_ssn: { value: null, confidence: 0 },
-        employer_ein: { value: null, confidence: 0 },
-        wages_tips: { value: null, confidence: 0 },
-      },
-      overallConfidence: 0.3,
-    })
-    const context = createMockContext(extraction)
-    
-    const result = await grade(context)
-    
-    expect(result.pass).toBe(false)
-    expect(result.issues.some(i => i.includes('blank form template'))).toBe(true)
+  it('should accept zero percent', () => {
+    expect(validatePercentage('0%').valid).toBe(true)
+    expect(validatePercentage('0').valid).toBe(true)
   })
 
-  it('should flag wrong tax year', async () => {
-    const extraction = createMockExtraction({
-      fields: {
-        ...createMockExtraction().fields,
-        tax_year: { value: '2023', confidence: 0.95 },
-      },
-    })
-    const context = createMockContext(extraction, { expectedTaxYear: 2024 })
-    
-    const result = await grade(context)
-    
-    expect(result.issues.some(i => i.includes('wrong_year'))).toBe(true)
+  it('should reject negative percentages', () => {
+    expect(validatePercentage('-10%').valid).toBe(false)
   })
 
-  it('should flag missing required fields', async () => {
-    const extraction = createMockExtraction({
-      fields: {
-        employee_ssn: { value: '123-45-6789', confidence: 0.95 },
-        // Missing employer_ein, employer_name, wages_tips, etc.
-      },
-    })
-    const context = createMockContext(extraction)
-    
-    const result = await grade(context)
-    
-    expect(result.failureReasons.some(r => r.includes('Missing'))).toBe(true)
+  it('should reject invalid percentages', () => {
+    expect(validatePercentage('abc%').valid).toBe(false)
+  })
+})
+
+// ============================================
+// GENERIC FORMAT VALIDATION
+// ============================================
+
+describe('validateFormat', () => {
+  it('should accept any value when no format specified', () => {
+    expect(validateFormat('anything').valid).toBe(true)
+    expect(validateFormat(12345).valid).toBe(true)
   })
 
-  it('should flag invalid field formats', async () => {
-    const extraction = createMockExtraction({
-      fields: {
-        ...createMockExtraction().fields,
-        employee_ssn: { value: 'invalid-ssn', confidence: 0.5 },
-      },
-    })
-    const context = createMockContext(extraction)
-    
-    const result = await grade(context)
-    
-    expect(result.fieldResults['employee_ssn']?.valid).toBe(false)
+  it('should validate against regex', () => {
+    const yearRegex = /^20\d{2}$/
+    expect(validateFormat('2024', yearRegex).valid).toBe(true)
+    expect(validateFormat('2025', yearRegex).valid).toBe(true)
+    expect(validateFormat('1999', yearRegex).valid).toBe(false)
+    expect(validateFormat('abcd', yearRegex).valid).toBe(false)
   })
 
-  it('should generate feedback with escalating strategies', async () => {
-    const extraction = createMockExtraction({
-      fields: {
-        employee_ssn: { value: null, confidence: 0 },
-      },
-      overallConfidence: 0.4,
-    })
-    
-    // Attempt 2 should suggest alternative types
-    const context2 = createMockContext(extraction, { attemptNumber: 2 })
-    const result2 = await grade(context2)
-    expect(result2.feedback).toContain('alternative interpretation')
-    
-    // Attempt 3 should suggest focusing on critical fields
-    const context3 = createMockContext(extraction, { attemptNumber: 3 })
-    const result3 = await grade(context3)
-    expect(result3.feedback).toContain('Final attempt')
+  it('should handle null/empty values gracefully', () => {
+    expect(validateFormat(null, 'ssn').valid).toBe(true)
+    expect(validateFormat('', 'ssn').valid).toBe(true)
+    expect(validateFormat(undefined, 'ein').valid).toBe(true)
   })
 
-  it('should calculate score correctly', async () => {
-    const extraction = createMockExtraction()
-    const context = createMockContext(extraction)
-    
-    const result = await grade(context)
-    
-    // Score should be 0-100
-    expect(result.score).toBeGreaterThanOrEqual(0)
-    expect(result.score).toBeLessThanOrEqual(100)
+  it('should route to specific validators', () => {
+    expect(validateFormat('123-45-6789', 'ssn').valid).toBe(true)
+    expect(validateFormat('12-3456789', 'ein').valid).toBe(true)
+    expect(validateFormat('$1,234.56', 'currency').valid).toBe(true)
+    expect(validateFormat('2024-01-15', 'date').valid).toBe(true)
+    expect(validateFormat('10%', 'percentage').valid).toBe(true)
+  })
+
+  it('should return issues for invalid formats', () => {
+    const result = validateFormat('invalid', 'ssn')
+    expect(result.valid).toBe(false)
+    expect(result.issue).toBeDefined()
+    expect(result.issue).toContain('SSN')
+  })
+})
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+describe('isBlankForm', () => {
+  it('should detect empty fields object as blank', () => {
+    expect(isBlankForm({})).toBe(true)
+  })
+
+  it('should detect all-null fields as blank', () => {
+    expect(isBlankForm({ field1: null, field2: null })).toBe(true)
+  })
+
+  it('should detect all-empty strings as blank', () => {
+    expect(isBlankForm({ field1: '', field2: '' })).toBe(true)
+  })
+
+  it('should detect all-zero numbers as blank', () => {
+    expect(isBlankForm({ field1: 0, field2: 0 })).toBe(true)
+  })
+
+  it('should NOT detect form with actual values as blank', () => {
+    expect(isBlankForm({ field1: '123-45-6789', field2: null })).toBe(false)
+    expect(isBlankForm({ field1: 50000 })).toBe(false)
+    expect(isBlankForm({ field1: 'ACME Corp' })).toBe(false)
+  })
+})
+
+describe('countFilledFields', () => {
+  it('should count fields with actual values', () => {
+    expect(countFilledFields({
+      field1: '123-45-6789',
+      field2: null,
+      field3: 50000,
+      field4: '',
+      field5: 0,
+    })).toBe(2) // field1 and field3
+  })
+
+  it('should return 0 for empty object', () => {
+    expect(countFilledFields({})).toBe(0)
+  })
+
+  it('should return 0 for all-empty fields', () => {
+    expect(countFilledFields({ a: null, b: '', c: 0 })).toBe(0)
+  })
+})
+
+describe('parseCurrency', () => {
+  it('should parse simple numbers', () => {
+    expect(parseCurrency('1234.56')).toBe(1234.56)
+    expect(parseCurrency('1234')).toBe(1234)
+  })
+
+  it('should parse formatted currency', () => {
+    expect(parseCurrency('$1,234.56')).toBe(1234.56)
+    expect(parseCurrency('$1,000,000')).toBe(1000000)
+  })
+
+  it('should handle number input', () => {
+    expect(parseCurrency(1234.56)).toBe(1234.56)
+  })
+
+  it('should return null for invalid input', () => {
+    expect(parseCurrency('abc')).toBe(null)
+    expect(parseCurrency('$abc')).toBe(null)
+  })
+
+  it('should handle negative numbers', () => {
+    expect(parseCurrency('-1234.56')).toBe(-1234.56)
   })
 })
 
@@ -399,35 +275,18 @@ describe('Grade Function', () => {
 // ============================================
 
 describe('Edge Cases', () => {
-  it('should handle unknown document types gracefully', async () => {
-    const extraction: ExtractionResult = {
-      likelyType: 'UNKNOWN_TYPE',
-      alternativeTypes: [],
-      fields: {},
-      overallConfidence: 0.3,
-      reasoning: 'Unknown document',
-    }
-    const context: GraderContext = {
-      extraction,
-      ocrText: 'Random text',
-      fileName: 'mystery.pdf',
-      attemptNumber: 1,
-    }
-    
-    const result = await grade(context)
-    
-    // Should use GENERIC_TEMPLATE and return a result
-    expect(result).toBeDefined()
-    expect(result.score).toBeGreaterThanOrEqual(0)
+  it('should handle very long values', () => {
+    const longValue = '1'.repeat(1000)
+    expect(() => validateFormat(longValue, 'ssn')).not.toThrow()
+    expect(validateFormat(longValue, 'ssn').valid).toBe(false)
   })
 
-  it('should handle extremely long field values', async () => {
-    const longValue = 'A'.repeat(10000)
-    const fields: Record<string, ExtractedField> = {
-      employer_name: { value: longValue, confidence: 0.5 },
-    }
-    
-    expect(() => countFilledFields(fields)).not.toThrow()
-    expect(countFilledFields(fields)).toBe(1)
+  it('should handle special characters', () => {
+    expect(validateSSN('123-45-6789!').valid).toBe(false)
+    expect(validateEIN('12-3456789@').valid).toBe(false)
+  })
+
+  it('should handle unicode', () => {
+    expect(validateCurrency('¥1234').valid).toBe(false) // Only $ supported
   })
 })
