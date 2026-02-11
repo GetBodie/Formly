@@ -1,6 +1,6 @@
 import { prisma } from '../prisma.js'
 import { generatePrepBrief } from '../openai.js'
-import type { ChecklistItem, Reconciliation } from '../../types.js'
+import type { ChecklistItem, Document, Reconciliation } from '../../types.js'
 import type { Document as PrismaDocument } from '@prisma/client'
 
 export type ReconciliationTrigger = 'document_assessed' | 'manual_reconciliation' | 'check_completion'
@@ -189,7 +189,7 @@ export async function runReconciliationAgent(context: {
         clientName: engagement.clientName,
         taxYear: engagement.taxYear,
         checklist,
-        documents,
+        documents: documents as unknown as Document[],
         reconciliation: {
           completionPercentage,
           issues: []

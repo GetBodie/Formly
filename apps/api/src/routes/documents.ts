@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { sendEmail } from '../lib/email.js'
 import { parseIssue, getSuggestedAction } from '../lib/issues.js'
@@ -455,7 +456,7 @@ app.post(
         documentType: 'PENDING',
         confidence: 0,
         issues: [],
-        issueDetails: null,
+        issueDetails: Prisma.DbNull,
         classifiedAt: null,
         retryCount: forceRetry ? 0 : doc.retryCount
       }
