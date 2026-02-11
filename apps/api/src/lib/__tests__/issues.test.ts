@@ -62,6 +62,68 @@ describe('parseIssue', () => {
       const result = parseIssue('[WARNING:other::] Some warning')
       expect(result.severity).toBe('warning')
     })
+
+    it('maps CRITICAL to error in full format', () => {
+      const result = parseIssue('[CRITICAL:blank_form::] This is blank')
+      expect(result.severity).toBe('error')
+      expect(result.type).toBe('blank_form')
+    })
+
+    it('maps INFO to warning in full format', () => {
+      const result = parseIssue('[INFO:tax_year_match:2026:2026] Tax year matches')
+      expect(result.severity).toBe('warning')
+      expect(result.type).toBe('tax_year_match')
+    })
+  })
+
+  describe('short format parsing', () => {
+    it('parses [SEVERITY:TYPE] format without expected/detected', () => {
+      const result = parseIssue('[CRITICAL:blank_form] This is a blank W-2 template with no actual data values')
+
+      expect(result).toEqual({
+        severity: 'error',
+        type: 'blank_form',
+        expected: null,
+        detected: null,
+        description: 'This is a blank W-2 template with no actual data values',
+      })
+    })
+
+    it('maps INFO severity to warning', () => {
+      const result = parseIssue('[INFO:tax_year_match] Tax year 2026 matches expected')
+
+      expect(result).toEqual({
+        severity: 'warning',
+        type: 'tax_year_match',
+        expected: null,
+        detected: null,
+        description: 'Tax year 2026 matches expected',
+      })
+    })
+
+    it('maps WARNING severity in short format', () => {
+      const result = parseIssue('[WARNING:low_quality] Image quality is poor')
+
+      expect(result).toEqual({
+        severity: 'warning',
+        type: 'low_quality',
+        expected: null,
+        detected: null,
+        description: 'Image quality is poor',
+      })
+    })
+
+    it('maps ERROR severity in short format', () => {
+      const result = parseIssue('[ERROR:wrong_year] Document is from the wrong year')
+
+      expect(result).toEqual({
+        severity: 'error',
+        type: 'wrong_year',
+        expected: null,
+        detected: null,
+        description: 'Document is from the wrong year',
+      })
+    })
   })
 
   describe('legacy format parsing', () => {

@@ -15,16 +15,35 @@ export interface ParsedIssue {
 /**
  * Parse an issue string into its components.
  */
+function normalizeSeverity(raw: string): 'error' | 'warning' {
+  const lower = raw.toLowerCase()
+  if (lower === 'error' || lower === 'critical') return 'error'
+  return 'warning'
+}
+
 export function parseIssue(issue: string): ParsedIssue {
-  // New format: [SEVERITY:TYPE:EXPECTED:DETECTED] description
-  const newFormatMatch = issue.match(/^\[(\w+):(\w+):([^:]*):([^\]]*)\]\s*(.+)$/)
-  if (newFormatMatch) {
-    const [, severity, type, expected, detected, description] = newFormatMatch
+  // Full format: [SEVERITY:TYPE:EXPECTED:DETECTED] description
+  const fullMatch = issue.match(/^\[(\w+):(\w+):([^:]*):([^\]]*)\]\s*(.+)$/)
+  if (fullMatch) {
+    const [, severity, type, expected, detected, description] = fullMatch
     return {
-      severity: severity.toLowerCase() as 'error' | 'warning',
+      severity: normalizeSeverity(severity),
       type,
       expected: expected || null,
       detected: detected || null,
+      description,
+    }
+  }
+
+  // Short format: [SEVERITY:TYPE] description (no expected/detected)
+  const shortMatch = issue.match(/^\[(\w+):(\w+)\]\s*(.+)$/)
+  if (shortMatch) {
+    const [, severity, type, description] = shortMatch
+    return {
+      severity: normalizeSeverity(severity),
+      type,
+      expected: null,
+      detected: null,
       description,
     }
   }
