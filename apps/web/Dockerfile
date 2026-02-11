@@ -28,16 +28,12 @@ FROM nginx:alpine AS runner
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config for SPA routing
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Remove default nginx config and copy our template
+RUN rm -f /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf.template
 
-EXPOSE 80
+# Render sets PORT; default to 80 for local Docker
+ENV PORT=80
 
-CMD ["nginx", "-g", "daemon off;"]
+# Substitute only $PORT (not $uri), then start nginx
+CMD ["/bin/sh", "-c", "envsubst '$PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
