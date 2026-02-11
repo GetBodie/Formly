@@ -84,6 +84,7 @@ export const sharePointClient: StorageClient = {
       mimeType,
       fileName,
       size,
+      presignedUrl,  // Pass through for OCR
     }
   },
 
