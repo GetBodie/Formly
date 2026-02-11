@@ -111,7 +111,7 @@ app.get('/:id', async (c) => {
 const UpdateEngagementSchema = z.object({
   storageFolderId: z.string().optional(),
   storageDriveId: z.string().optional(),
-  storageFolderUrl: z.string().url().optional(),
+  storageFolderUrl: z.string().url().nullable().optional(),
   storageProvider: z.enum(['dropbox', 'google-drive']).optional(),
   status: z.enum(['PENDING', 'INTAKE_DONE', 'COLLECTING', 'READY']).optional(),
 })
