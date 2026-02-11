@@ -36,10 +36,8 @@ export function createMockDocument(overrides: Partial<Document> = {}): Document 
     classifiedAt: new Date().toISOString(),
     processingStatus: 'classified',
     processingStartedAt: null,
-    approved: null,
     approvedAt: null,
     override: null,
-    archived: false,
     archivedAt: null,
     archivedReason: null,
     retryCount: 0,
@@ -71,7 +69,6 @@ export interface MockEngagement {
   storagePageToken: string | null
   intakeData: unknown
   checklist: ChecklistItem[] | null
-  documents: Document[] | null
   reconciliation: Reconciliation | null
   prepBrief: string | null
   lastActivityAt: Date
@@ -95,7 +92,6 @@ export function createMockEngagement(overrides: Partial<MockEngagement> = {}): M
     storagePageToken: null,
     intakeData: null,
     checklist: null,
-    documents: null,
     reconciliation: null,
     prepBrief: null,
     lastActivityAt: now,

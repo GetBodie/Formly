@@ -35,31 +35,28 @@ export const FriendlyIssueSchema = z.object({
   severity: z.enum(['error', 'warning'])
 })
 
+// DocumentSchema kept for API validation / backwards compat.
+// Source of truth for document shape is now the Prisma Document model.
 export const DocumentSchema = z.object({
   id: z.string(),
   fileName: z.string(),
-  storageItemId: z.string(), // File ID in storage provider (Dropbox)
+  storageItemId: z.string(),
   documentType: z.string(),
   confidence: z.number(),
   taxYear: z.number().nullable(),
   issues: z.array(z.string()),
-  issueDetails: z.array(FriendlyIssueSchema).nullable().default(null), // Cached LLM-generated issue details
+  issueDetails: z.array(FriendlyIssueSchema).nullable().default(null),
   classifiedAt: z.string().nullable(),
-  // Processing state tracking for retry logic
-  processingStatus: z.enum(['pending', 'downloading', 'extracting', 'classifying', 'classified', 'error']).optional(), // defaults to 'pending' if missing
-  processingStartedAt: z.string().nullable().optional(), // ISO timestamp when processing started
-  retryCount: z.number().optional().default(0), // Number of processing attempts (max 3)
-  // Document review fields
-  approved: z.boolean().nullable().default(null), // null = not reviewed, true = approved
+  processingStatus: z.enum(['pending', 'downloading', 'extracting', 'classifying', 'classified', 'error']).optional(),
+  processingStartedAt: z.string().nullable().optional(),
+  retryCount: z.number().optional().default(0),
   approvedAt: z.string().nullable().default(null),
   override: z.object({
     originalType: z.string(),
     reason: z.string(),
   }).nullable().default(null),
-  // Archive fields for document replacement flow
-  archived: z.boolean().default(false),
   archivedAt: z.string().nullable().default(null),
-  archivedReason: z.string().nullable().default(null), // e.g., "Replaced by newer document"
+  archivedReason: z.string().nullable().default(null),
 })
 
 export const ReconciliationSchema = z.object({
