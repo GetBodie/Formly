@@ -315,7 +315,7 @@ export default function EngagementDetail() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="px-[160px] pt-[60px]">
+      <div className="max-w-screen-xl mx-auto px-6 pt-[60px]">
         {/* Error banner */}
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm flex items-center justify-between">
