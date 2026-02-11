@@ -21,6 +21,7 @@ export interface DownloadResult {
   mimeType: string
   fileName: string
   size: number
+  presignedUrl?: string  // Direct download URL if available (for OCR)
 }
 
 export interface FolderInfo {
