@@ -82,6 +82,18 @@ export default function NewEngagement() {
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null)
 
   const detectedProvider = useMemo(() => detectProvider(storageFolderUrl), [storageFolderUrl])
+
+  // Handle URL change with auto-selection of provider
+  function handleStorageUrlChange(url: string) {
+    setStorageFolderUrl(url)
+    // Auto-select provider when no provider is selected
+    if (!selectedProvider) {
+      const detected = detectProvider(url)
+      if (detected) {
+        setSelectedProvider(detected)
+      }
+    }
+  }
   
   // Validation: if provider is selected, URL must match that provider
   const urlMismatch = useMemo(() => {
@@ -383,7 +395,7 @@ export default function NewEngagement() {
                       name="storageFolderUrl"
                       required
                       value={storageFolderUrl}
-                      onChange={(e) => setStorageFolderUrl(e.target.value)}
+                      onChange={(e) => handleStorageUrlChange(e.target.value)}
                       className={`w-full h-9 px-3 text-sm border rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors ${
                         urlMismatch ? 'border-red-300 bg-red-50' : 'border-gray-300'
                       }`}
@@ -567,7 +579,7 @@ export default function NewEngagement() {
                   name="storageFolderUrl"
                   required
                   value={storageFolderUrl}
-                  onChange={(e) => setStorageFolderUrl(e.target.value)}
+                  onChange={(e) => handleStorageUrlChange(e.target.value)}
                   className="w-full h-9 px-3 text-sm border border-gray-300 rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors"
                   placeholder="Select a provider above, or paste any supported URL"
                 />
