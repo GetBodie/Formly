@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import cronRoutes from '../cron.js'
-import { createMockEngagement, createMockDocument, resetIdCounter } from '../../test/factories.js'
+import { createMockEngagement, resetIdCounter } from '../../test/factories.js'
 
 // Mock dependencies
 vi.mock('../../lib/prisma.js', () => ({
@@ -10,18 +10,15 @@ vi.mock('../../lib/prisma.js', () => ({
       findMany: vi.fn(),
       update: vi.fn(),
     },
+    document: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }))
 
-vi.mock('../../lib/storage/index.js', () => ({
-  getStorageClient: vi.fn(() => ({
-    syncFolder: vi.fn(async () => ({
-      files: [
-        { id: 'new_file_1', name: 'new-doc.pdf', mimeType: 'application/pdf' },
-      ],
-      nextPageToken: 'new_cursor',
-    })),
-  })),
+vi.mock('../../lib/poll-engagement.js', () => ({
+  pollEngagement: vi.fn(async () => {}),
 }))
 
 vi.mock('../../lib/agents/dispatcher.js', () => ({
@@ -83,18 +80,17 @@ describe('Cron Routes', () => {
           status: 'COLLECTING',
           storageProvider: 'dropbox',
           storageFolderId: '/folder1',
-          documents: [],
         }),
         createMockEngagement({
           id: 'eng_2',
           status: 'INTAKE_DONE',
           storageProvider: 'dropbox',
           storageFolderId: '/folder2',
-          documents: [],
         }),
       ]
       vi.mocked(prisma.engagement.findMany).mockResolvedValueOnce(engagements as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValue({} as any)
+      // retryStuckDocuments queries prisma.document.findMany
+      vi.mocked(prisma.document.findMany).mockResolvedValueOnce([])
 
       const res = await app.request(createRequest('/api/cron/poll-storage'))
 
@@ -104,74 +100,48 @@ describe('Cron Routes', () => {
     })
 
     it('retries stuck documents', async () => {
-      const fiveMinutesAgo = new Date(Date.now() - 6 * 60 * 1000).toISOString()
-      const stuckDoc = createMockDocument({
+      const stuckDoc = {
         id: 'doc_stuck',
+        engagementId: 'eng_1',
         processingStatus: 'downloading',
-        processingStartedAt: fiveMinutesAgo,
+        processingStartedAt: new Date(Date.now() - 6 * 60 * 1000),
         documentType: 'PENDING',
-      })
+        retryCount: 0,
+        fileName: 'test.pdf',
+        storageItemId: 'storage_001',
+        issues: [],
+      }
 
-      const engagements = [
-        createMockEngagement({
-          id: 'eng_1',
-          status: 'COLLECTING',
-          documents: [stuckDoc],
-        }),
-      ]
-      vi.mocked(prisma.engagement.findMany).mockResolvedValueOnce(engagements as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValue({} as any)
+      vi.mocked(prisma.engagement.findMany).mockResolvedValueOnce([])
+      vi.mocked(prisma.document.findMany).mockResolvedValueOnce([stuckDoc] as any)
+      vi.mocked(prisma.document.update).mockResolvedValue({} as any)
 
       const res = await app.request(createRequest('/api/cron/poll-storage'))
 
       expect(res.status).toBe(200)
       const data = (await res.json()) as Record<string, unknown>
-      expect(data.retriedStuck).toBeGreaterThanOrEqual(0)
+      expect(data.retriedStuck).toBeGreaterThanOrEqual(1)
     })
 
     it('retries documents with PROCESSING_ERROR type', async () => {
-      const errorDoc = createMockDocument({
+      const errorDoc = {
         id: 'doc_error',
+        engagementId: 'eng_1',
         documentType: 'PROCESSING_ERROR',
         processingStatus: 'classified',
-      })
+        retryCount: 0,
+        fileName: 'error.pdf',
+        storageItemId: 'storage_002',
+        issues: [],
+      }
 
-      const engagements = [
-        createMockEngagement({
-          id: 'eng_1',
-          status: 'COLLECTING',
-          documents: [errorDoc],
-        }),
-      ]
-      vi.mocked(prisma.engagement.findMany).mockResolvedValueOnce(engagements as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValue({} as any)
+      vi.mocked(prisma.engagement.findMany).mockResolvedValueOnce([])
+      vi.mocked(prisma.document.findMany).mockResolvedValueOnce([errorDoc] as any)
+      vi.mocked(prisma.document.update).mockResolvedValue({} as any)
 
       const res = await app.request(createRequest('/api/cron/poll-storage'))
 
       expect(res.status).toBe(200)
-      // The retry logic should have dispatched document_uploaded
-      expect(dispatch).toHaveBeenCalled()
-    })
-
-    it('dispatches document_uploaded for new files', async () => {
-      const engagement = createMockEngagement({
-        id: 'eng_1',
-        status: 'COLLECTING',
-        storageProvider: 'dropbox',
-        storageFolderId: '/folder',
-        storagePageToken: null,
-        documents: [],
-      })
-      vi.mocked(prisma.engagement.findMany).mockResolvedValueOnce([engagement] as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValue({} as any)
-
-      const res = await app.request(createRequest('/api/cron/poll-storage'))
-
-      expect(res.status).toBe(200)
-
-      // Wait for background processing
-      await new Promise((resolve) => setTimeout(resolve, 10))
-
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'document_uploaded',

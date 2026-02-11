@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { dispatch, type AgentEvent } from '../dispatcher.js'
-import { createMockEngagement, createMockChecklistItem, createMockDocument, resetIdCounter } from '../../../test/factories.js'
+import { createMockEngagement, createMockChecklistItem, resetIdCounter } from '../../../test/factories.js'
 
 // Mock dependencies
 vi.mock('../../prisma.js', () => ({
@@ -106,8 +106,7 @@ describe('Agent Dispatcher', () => {
 
   describe('document_uploaded event', () => {
     it('runs assessment agent and chains to document_assessed', async () => {
-      const mockDocument = createMockDocument({ id: 'doc_001', storageItemId: 'storage_001' })
-      const mockEngagement = createMockEngagement({ id: 'eng_123', documents: [mockDocument] })
+      const mockEngagement = createMockEngagement({ id: 'eng_123' })
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
       vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
 

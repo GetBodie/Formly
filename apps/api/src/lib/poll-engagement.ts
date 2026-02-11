@@ -1,7 +1,6 @@
 import { prisma } from './prisma.js'
 import { getStorageClient, type StorageProvider } from './storage/index.js'
 import { dispatch } from './agents/dispatcher.js'
-import type { Document } from '../types.js'
 
 export async function pollEngagement(engagement: {
   id: string
@@ -11,7 +10,6 @@ export async function pollEngagement(engagement: {
   storageDriveId: string | null
   storagePageToken: string | null
   checklist: unknown
-  documents: unknown
 }) {
   const provider = (engagement.storageProvider || 'dropbox') as StorageProvider
   const folderId = engagement.storageFolderId
@@ -29,19 +27,23 @@ export async function pollEngagement(engagement: {
   try {
     const client = getStorageClient(provider)
     const { files, nextPageToken } = await client.syncFolder(
-      folderId || '', // For Dropbox shared links, folderId can be empty
+      folderId || '',
       pageToken,
       { driveId: driveId || undefined, sharedLinkUrl: folderUrl || undefined }
     )
 
-    const existingDocs = (engagement.documents as Document[]) || []
-    const existingIds = new Set(existingDocs.map(d => d.storageItemId))
+    // Query existing storageItemIds from Document table
+    const existingIds = new Set(
+      (await prisma.document.findMany({
+        where: { engagementId: engagement.id },
+        select: { storageItemId: true }
+      })).map(d => d.storageItemId)
+    )
 
     // Process new files
     const newFiles = files.filter(file => !file.deleted && !existingIds.has(file.id))
 
     if (newFiles.length === 0) {
-      // Just update page token if no new files
       await prisma.engagement.update({
         where: { id: engagement.id },
         data: { storagePageToken: nextPageToken }
@@ -49,61 +51,44 @@ export async function pollEngagement(engagement: {
       return
     }
 
-    // Add placeholder documents for new files
-    for (const file of newFiles) {
-      const newDoc: Document = {
-        id: crypto.randomUUID(),
+    // Create document rows for new files
+    await prisma.document.createMany({
+      data: newFiles.map(file => ({
+        engagementId: engagement.id,
         fileName: file.name,
         storageItemId: file.id,
-        documentType: 'PENDING',
-        confidence: 0,
-        taxYear: null,
-        issues: [],
-        issueDetails: null,
-        classifiedAt: null,
-        processingStatus: 'pending',
-        processingStartedAt: null,
-        retryCount: 0,
-        approved: null,
-        approvedAt: null,
-        override: null,
-        archived: false,
-        archivedAt: null,
-        archivedReason: null,
-      }
+      }))
+    })
 
-      existingDocs.push(newDoc)
-    }
-
-    // Update documents list and page token
+    // Update page token and status
     await prisma.engagement.update({
       where: { id: engagement.id },
       data: {
         storagePageToken: nextPageToken,
-        documents: existingDocs,
         status: 'COLLECTING'
+      }
+    })
+
+    // Fetch created docs to get their IDs for dispatch
+    const createdDocs = await prisma.document.findMany({
+      where: {
+        engagementId: engagement.id,
+        storageItemId: { in: newFiles.map(f => f.id) }
       }
     })
 
     // Dispatch document_uploaded events in parallel batches (5 concurrent)
     const BATCH_SIZE = 5
-    const docsToProcess = newFiles
-      .map(file => {
-        const doc = existingDocs.find(d => d.storageItemId === file.id)
-        return doc ? { file, doc } : null
-      })
-      .filter((item): item is { file: typeof newFiles[0]; doc: Document } => item !== null)
-
-    for (let i = 0; i < docsToProcess.length; i += BATCH_SIZE) {
-      const batch = docsToProcess.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < createdDocs.length; i += BATCH_SIZE) {
+      const batch = createdDocs.slice(i, i + BATCH_SIZE)
       await Promise.allSettled(
-        batch.map(({ file, doc }) =>
+        batch.map(doc =>
           dispatch({
             type: 'document_uploaded',
             engagementId: engagement.id,
             documentId: doc.id,
-            storageItemId: file.id,
-            fileName: file.name
+            storageItemId: doc.storageItemId,
+            fileName: doc.fileName
           })
         )
       )

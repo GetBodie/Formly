@@ -1,35 +1,26 @@
 import { prisma } from '../prisma.js'
 import { generatePrepBrief } from '../openai.js'
-import type { Document, ChecklistItem, Reconciliation } from '../../types.js'
+import type { ChecklistItem, Document, Reconciliation } from '../../types.js'
+import type { Document as PrismaDocument } from '@prisma/client'
 
-// Agent trigger types
 export type ReconciliationTrigger = 'document_assessed' | 'manual_reconciliation' | 'check_completion'
 
-/**
- * Match a document to checklist items based on expectedDocumentType.
- * Returns the IDs of matched items.
- */
 function matchDocumentToItems(
-  document: Document,
+  document: PrismaDocument,
   checklist: ChecklistItem[]
 ): string[] {
   const matchedItemIds: string[] = []
-  
+
   for (const item of checklist) {
-    // Match if expectedDocumentType matches documentType exactly
-    if (item.expectedDocumentType && 
+    if (item.expectedDocumentType &&
         item.expectedDocumentType.toLowerCase() === document.documentType.toLowerCase()) {
       matchedItemIds.push(item.id)
     }
   }
-  
+
   return matchedItemIds
 }
 
-/**
- * Calculate weighted completion percentage.
- * Weights: high=50%, medium=35%, low=15%
- */
 function calculateCompletion(checklist: ChecklistItem[]): {
   completionPercentage: number
   itemStatuses: Array<{ itemId: string; status: 'pending' | 'received' | 'complete'; documentIds: string[] }>
@@ -39,7 +30,7 @@ function calculateCompletion(checklist: ChecklistItem[]): {
   }
 
   const weights: Record<string, number> = { high: 0.5, medium: 0.35, low: 0.15 }
-  
+
   let totalWeight = 0
   let completedWeight = 0
 
@@ -50,7 +41,7 @@ function calculateCompletion(checklist: ChecklistItem[]): {
     if (item.status === 'complete') {
       completedWeight += weight
     } else if (item.status === 'received') {
-      completedWeight += weight * 0.5 // Received = 50% credit
+      completedWeight += weight * 0.5
     }
   }
 
@@ -67,21 +58,16 @@ function calculateCompletion(checklist: ChecklistItem[]): {
   return { completionPercentage, itemStatuses }
 }
 
-/**
- * Check if engagement is ready for accountant.
- * Ready if: 100% complete OR all high-priority items done with no unresolved issues.
- */
 function checkReady(
   checklist: ChecklistItem[],
-  documents: Document[],
+  documents: PrismaDocument[],
   completionPercentage: number
 ): { isReady: boolean; reasons: string[] } {
   const highPriorityItems = checklist.filter(i => i.priority === 'high')
   const highPriorityComplete = highPriorityItems.every(i => i.status === 'complete')
 
-  // A document has unresolved issues if it has issues AND hasn't been approved
   const documentsWithUnresolvedIssues = documents.filter(d =>
-    d.issues && d.issues.length > 0 && d.approved !== true
+    d.issues && d.issues.length > 0 && !d.approvedAt
   )
 
   const isReady = (completionPercentage === 100) ||
@@ -103,12 +89,6 @@ function checkReady(
   return { isReady, reasons }
 }
 
-/**
- * Run the Reconciliation Agent - matches documents to checklist items,
- * calculates completion, and determines if engagement is ready.
- * 
- * This is a direct implementation without the agent SDK.
- */
 export async function runReconciliationAgent(context: {
   trigger: ReconciliationTrigger
   engagementId: string
@@ -120,7 +100,8 @@ export async function runReconciliationAgent(context: {
   console.log(`[RECONCILIATION] Starting ${trigger} for ${engagementId}`)
 
   const engagement = await prisma.engagement.findUnique({
-    where: { id: engagementId }
+    where: { id: engagementId },
+    include: { documents: true }
   })
 
   if (!engagement) {
@@ -128,40 +109,35 @@ export async function runReconciliationAgent(context: {
   }
 
   const checklist = (engagement.checklist as ChecklistItem[] | null) ?? []
-  const allDocuments = (engagement.documents as Document[] | null) ?? []
-  
-  // Filter out archived documents
-  const documents = allDocuments.filter(doc => !doc.archived)
+
+  // Filter out archived documents (archivedAt !== null means archived)
+  const documents = engagement.documents.filter(doc => !doc.archivedAt)
 
   if (checklist.length === 0) {
     console.log(`[RECONCILIATION] No checklist for ${engagementId}, skipping`)
     return { isReady: false, completionPercentage: 0 }
   }
 
-  // If triggered by a new document assessment, match it to checklist items
   if (trigger === 'document_assessed' && documentId && documentType) {
     const doc = documents.find(d => d.id === documentId)
-    
+
     if (doc) {
       const matchedItemIds = matchDocumentToItems(doc, checklist)
-      
+
       for (const itemId of matchedItemIds) {
         const item = checklist.find(i => i.id === itemId)
         if (item) {
-          // Add document to item if not already there
           if (!item.documentIds.includes(documentId)) {
             item.documentIds.push(documentId)
           }
-          
-          // Update status based on whether doc has issues
-          const hasIssues = doc.issues && doc.issues.length > 0 && doc.approved !== true
+
+          const hasIssues = doc.issues && doc.issues.length > 0 && !doc.approvedAt
           item.status = hasIssues ? 'received' : 'complete'
-          
+
           console.log(`[RECONCILIATION] Matched ${documentType} to "${item.title}" -> ${item.status}`)
         }
       }
 
-      // Update checklist in DB
       await prisma.engagement.update({
         where: { id: engagementId },
         data: { checklist }
@@ -169,17 +145,14 @@ export async function runReconciliationAgent(context: {
     }
   }
 
-  // For manual reconciliation or check_completion, review all items
   if (trigger === 'manual_reconciliation' || trigger === 'check_completion') {
-    // Re-evaluate all items based on current documents
     for (const item of checklist) {
       if (item.documentIds.length > 0) {
-        // Check if any linked document has issues
         const linkedDocs = documents.filter(d => item.documentIds.includes(d.id))
-        const hasUnresolvedIssues = linkedDocs.some(d => 
-          d.issues && d.issues.length > 0 && d.approved !== true
+        const hasUnresolvedIssues = linkedDocs.some(d =>
+          d.issues && d.issues.length > 0 && !d.approvedAt
         )
-        
+
         if (linkedDocs.length > 0) {
           item.status = hasUnresolvedIssues ? 'received' : 'complete'
         }
@@ -192,13 +165,9 @@ export async function runReconciliationAgent(context: {
     })
   }
 
-  // Calculate completion
   const { completionPercentage, itemStatuses } = calculateCompletion(checklist)
-
-  // Check if ready
   const { isReady, reasons } = checkReady(checklist, documents, completionPercentage)
 
-  // Build reconciliation record
   const reconciliation: Reconciliation = {
     completionPercentage,
     itemStatuses,
@@ -206,24 +175,21 @@ export async function runReconciliationAgent(context: {
     ranAt: new Date().toISOString()
   }
 
-  // Update reconciliation and potentially status
   const updateData: Record<string, unknown> = {
     reconciliation,
     lastActivityAt: new Date()
   }
 
-  // Auto-transition to READY if conditions met
   if (isReady && engagement.status !== 'READY') {
     updateData.status = 'READY'
     console.log(`[RECONCILIATION] Transitioning ${engagementId} to READY`)
 
-    // Generate prep brief
     try {
       const brief = await generatePrepBrief({
         clientName: engagement.clientName,
         taxYear: engagement.taxYear,
         checklist,
-        documents,
+        documents: documents as unknown as Document[],
         reconciliation: {
           completionPercentage,
           issues: []
@@ -236,7 +202,6 @@ export async function runReconciliationAgent(context: {
     }
   }
 
-  // Log agent activity
   const existingLog = (engagement.agentLog as object[] | null) ?? []
   const newEntry = {
     timestamp: new Date().toISOString(),

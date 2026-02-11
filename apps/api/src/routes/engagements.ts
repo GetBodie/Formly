@@ -22,6 +22,7 @@ const CreateEngagementSchema = z.object({
 app.get('/', async (c) => {
   const engagements = await prisma.engagement.findMany({
     orderBy: { createdAt: 'desc' },
+    include: { documents: true }
   })
   return c.json(engagements)
 })
@@ -61,7 +62,6 @@ app.post('/', zValidator('json', CreateEngagementSchema), async (c) => {
       }
     } catch (error) {
       console.warn('Could not resolve storage URL:', error)
-      // Continue without resolved IDs - they can be set later
     }
 
     const engagement = await prisma.engagement.create({
@@ -96,7 +96,10 @@ app.post('/', zValidator('json', CreateEngagementSchema), async (c) => {
 // GET /api/engagements/:id - Get single engagement
 app.get('/:id', async (c) => {
   const id = c.req.param('id')
-  const engagement = await prisma.engagement.findUnique({ where: { id } })
+  const engagement = await prisma.engagement.findUnique({
+    where: { id },
+    include: { documents: true }
+  })
 
   if (!engagement) {
     return c.json({ error: 'Engagement not found' }, 404)
@@ -136,7 +139,6 @@ app.patch('/:id', zValidator('json', UpdateEngagementSchema), async (c) => {
 
   if (body.storageFolderUrl !== undefined) {
     updateData.storageFolderUrl = body.storageFolderUrl
-    // Reset page token when folder URL changes (need fresh sync)
     updateData.storagePageToken = null
   }
 
@@ -160,7 +162,10 @@ app.patch('/:id', zValidator('json', UpdateEngagementSchema), async (c) => {
 app.post('/:id/brief', async (c) => {
   const id = c.req.param('id')
 
-  const engagement = await prisma.engagement.findUnique({ where: { id } })
+  const engagement = await prisma.engagement.findUnique({
+    where: { id },
+    include: { documents: true }
+  })
 
   if (!engagement) {
     return c.json({ error: 'Engagement not found' }, 404)
@@ -174,7 +179,7 @@ app.post('/:id/brief', async (c) => {
   }
 
   const checklist = (engagement.checklist as ChecklistItem[]) || []
-  const documents = (engagement.documents as Document[]) || []
+  const documents = engagement.documents
   const reconciliation = (engagement.reconciliation as Reconciliation) || {
     completionPercentage: 0,
     issues: [],
@@ -184,7 +189,7 @@ app.post('/:id/brief', async (c) => {
     clientName: engagement.clientName,
     taxYear: engagement.taxYear,
     checklist,
-    documents,
+    documents: documents as unknown as Document[],
     reconciliation: {
       completionPercentage: reconciliation.completionPercentage,
       issues: reconciliation.issues,
@@ -209,18 +214,18 @@ app.post('/:id/retry-documents', async (c) => {
     return c.json({ error: 'Engagement not found' }, 404)
   }
 
-  const documents = (engagement.documents as Document[]) || []
-  const pendingDocs = documents.filter(d => d.documentType === 'PENDING')
+  const pendingDocs = await prisma.document.findMany({
+    where: { engagementId: id, documentType: 'PENDING' }
+  })
 
   if (pendingDocs.length === 0) {
     return c.json({ message: 'No PENDING documents to retry', retried: 0 })
   }
 
-  // Dispatch document_uploaded events for each pending document
   for (const doc of pendingDocs) {
     runInBackground(() => dispatch({
       type: 'document_uploaded',
-      engagementId: engagement.id,
+      engagementId: id,
       documentId: doc.id,
       storageItemId: doc.storageItemId,
       fileName: doc.fileName
@@ -256,12 +261,15 @@ app.post('/:id/process', async (c) => {
   // Poll storage for new files
   await pollEngagement(engagement)
 
-  // Re-fetch to get updated document list
-  const updated = await prisma.engagement.findUnique({ where: { id } })
-  const documents = (updated?.documents as Document[]) || []
+  // Find remaining PENDING docs that aren't already processing
+  const pendingDocs = await prisma.document.findMany({
+    where: {
+      engagementId: id,
+      documentType: 'PENDING',
+      processingStatus: { notIn: ['downloading', 'extracting', 'classifying'] }
+    }
+  })
 
-  // Dispatch document_uploaded for any remaining PENDING docs
-  const pendingDocs = documents.filter(d => d.documentType === 'PENDING' && !['downloading', 'extracting', 'classifying'].includes(d.processingStatus || ''))
   for (const doc of pendingDocs) {
     runInBackground(() => dispatch({
       type: 'document_uploaded',
@@ -272,9 +280,11 @@ app.post('/:id/process', async (c) => {
     }))
   }
 
+  const totalDocs = await prisma.document.count({ where: { engagementId: id } })
+
   return c.json({
     success: true,
-    totalDocuments: documents.length,
+    totalDocuments: totalDocs,
     pendingDocuments: pendingDocs.length,
   })
 })
@@ -323,7 +333,6 @@ app.delete('/:id', async (c) => {
     return c.json({ error: 'Engagement not found' }, 404)
   }
 
-  // Delete the engagement (documents are embedded in JSON, deleted automatically)
   await prisma.engagement.delete({
     where: { id }
   })
@@ -334,12 +343,12 @@ app.delete('/:id', async (c) => {
 // DELETE /api/engagements - Delete ALL engagements (for demo reset)
 app.delete('/', async (c) => {
   const result = await prisma.engagement.deleteMany({})
-  
+
   console.log(`[DEMO RESET] Deleted ${result.count} engagements`)
-  
-  return c.json({ 
+
+  return c.json({
     message: 'All engagements deleted successfully',
-    count: result.count 
+    count: result.count
   })
 })
 

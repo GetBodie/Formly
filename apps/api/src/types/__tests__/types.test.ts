@@ -130,7 +130,6 @@ describe('DocumentSchema', () => {
       classifiedAt: '2025-01-15T10:00:00Z',
       processingStatus: 'classified',
       processingStartedAt: null,
-      approved: null,
       approvedAt: null,
       override: null,
     }
@@ -174,7 +173,6 @@ describe('DocumentSchema', () => {
       issues: [],
       issueDetails: null,
       classifiedAt: '2025-01-15T10:00:00Z',
-      approved: true,
       approvedAt: '2025-01-16T10:00:00Z',
       override: null,
     }
@@ -194,7 +192,6 @@ describe('DocumentSchema', () => {
       issues: [],
       issueDetails: null,
       classifiedAt: '2025-01-15T10:00:00Z',
-      approved: null,
       approvedAt: null,
       override: {
         originalType: 'W-2',

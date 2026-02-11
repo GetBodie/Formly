@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import documentRoutes from '../documents.js'
-import { createMockEngagement, createMockDocument, resetIdCounter } from '../../test/factories.js'
+import { createMockDocument, resetIdCounter } from '../../test/factories.js'
 
 // Mock dependencies
 vi.mock('../../lib/prisma.js', () => ({
   prisma: {
     engagement: {
       findUnique: vi.fn(),
+    },
+    document: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
       update: vi.fn(),
     },
   },
@@ -54,12 +58,9 @@ describe('Document Routes', () => {
   describe('POST /api/engagements/:engagementId/documents/:docId/approve', () => {
     it('approves document and triggers reconciliation', async () => {
       const doc = createMockDocument({ id: 'doc_123', documentType: 'W-2' })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+      const updatedDoc = { ...doc, approvedAt: new Date().toISOString() }
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(doc as any)
+      vi.mocked(prisma.document.update).mockResolvedValueOnce(updatedDoc as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/approve', {
@@ -70,13 +71,13 @@ describe('Document Routes', () => {
       expect(res.status).toBe(200)
       const data = await res.json() as any
       expect(data.success).toBe(true)
-      expect(data.document.approved).toBe(true)
+      expect(data.document.approvedAt).toBeTruthy()
       expect(runReconciliationAgent).toHaveBeenCalled()
     })
 
     it('returns 404 for non-existent document', async () => {
-      const mockEngagement = createMockEngagement({ id: 'eng_123', documents: [] })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(null)
+      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce({ id: 'eng_123' } as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_nonexistent/approve', {
@@ -90,6 +91,7 @@ describe('Document Routes', () => {
     })
 
     it('returns 404 for non-existent engagement', async () => {
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(null)
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(null)
 
       const res = await app.request(
@@ -107,12 +109,14 @@ describe('Document Routes', () => {
   describe('POST /api/engagements/:engagementId/documents/:docId/reclassify', () => {
     it('reclassifies document to new type', async () => {
       const doc = createMockDocument({ id: 'doc_123', documentType: 'PENDING' })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+      const updatedDoc = {
+        ...doc,
+        documentType: 'W-2',
+        approvedAt: null,
+        override: { originalType: 'PENDING', reason: 'Reclassified from PENDING to W-2' },
+      }
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(doc as any)
+      vi.mocked(prisma.document.update).mockResolvedValueOnce(updatedDoc as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/reclassify', {
@@ -134,15 +138,16 @@ describe('Document Routes', () => {
       const doc = createMockDocument({
         id: 'doc_123',
         documentType: 'W-2',
-        approved: true,
         approvedAt: '2026-02-01T00:00:00.000Z',
       })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+      const updatedDoc = {
+        ...doc,
+        documentType: '1099-NEC',
+        approvedAt: null,
+        override: { originalType: 'W-2', reason: 'Reclassified from W-2 to 1099-NEC' },
+      }
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(doc as any)
+      vi.mocked(prisma.document.update).mockResolvedValueOnce(updatedDoc as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/reclassify', {
@@ -156,7 +161,6 @@ describe('Document Routes', () => {
       const data = await res.json() as any
       expect(data.success).toBe(true)
       expect(data.document.documentType).toBe('1099-NEC')
-      expect(data.document.approved).toBe(false)
       expect(data.document.approvedAt).toBeNull()
     })
 
@@ -169,12 +173,14 @@ describe('Document Routes', () => {
           reason: 'Reclassified from PENDING to 1099-INT',
         },
       })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+      const updatedDoc = {
+        ...doc,
+        documentType: 'W-2',
+        approvedAt: null,
+        override: { originalType: 'PENDING', reason: 'Reclassified from PENDING to W-2' },
+      }
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(doc as any)
+      vi.mocked(prisma.document.update).mockResolvedValueOnce(updatedDoc as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/reclassify', {
@@ -193,13 +199,6 @@ describe('Document Routes', () => {
     })
 
     it('returns 400 for invalid document type', async () => {
-      const doc = createMockDocument({ id: 'doc_123' })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/reclassify', {
           method: 'POST',
@@ -215,12 +214,13 @@ describe('Document Routes', () => {
   describe('POST /api/engagements/:engagementId/documents/:docId/archive', () => {
     it('archives document with reason', async () => {
       const doc = createMockDocument({ id: 'doc_123', documentType: 'W-2' })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+      const updatedDoc = {
+        ...doc,
+        archivedAt: new Date().toISOString(),
+        archivedReason: 'Duplicate document',
+      }
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(doc as any)
+      vi.mocked(prisma.document.update).mockResolvedValueOnce(updatedDoc as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/archive', {
@@ -233,7 +233,7 @@ describe('Document Routes', () => {
       expect(res.status).toBe(200)
       const data = await res.json() as any
       expect(data.success).toBe(true)
-      expect(data.document.archived).toBe(true)
+      expect(data.document.archivedAt).toBeTruthy()
       expect(data.document.archivedReason).toBe('Duplicate document')
     })
   })
@@ -243,15 +243,15 @@ describe('Document Routes', () => {
       const doc = createMockDocument({
         id: 'doc_123',
         documentType: 'W-2',
-        archived: true,
         archivedAt: new Date().toISOString(),
       })
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        documents: [doc],
-      })
-      vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
-      vi.mocked(prisma.engagement.update).mockResolvedValueOnce(mockEngagement as any)
+      const updatedDoc = {
+        ...doc,
+        archivedAt: null,
+        archivedReason: null,
+      }
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(doc as any)
+      vi.mocked(prisma.document.update).mockResolvedValueOnce(updatedDoc as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/unarchive', {
@@ -262,7 +262,7 @@ describe('Document Routes', () => {
       expect(res.status).toBe(200)
       const data = await res.json() as any
       expect(data.success).toBe(true)
-      expect(data.document.archived).toBe(false)
+      expect(data.document.archivedAt).toBeNull()
     })
   })
 
@@ -272,12 +272,15 @@ describe('Document Routes', () => {
         id: 'doc_123',
         issues: ['SEVERITY:high TYPE:missing DETAILS:Issue'],
       })
-      const mockEngagement = createMockEngagement({
+      const mockEngagement = {
         id: 'eng_123',
+        clientName: 'Test Client',
+        clientEmail: 'client@example.com',
         storageFolderUrl: 'https://dropbox.com/test',
-        documents: [doc],
-      })
+        taxYear: 2025,
+      }
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
+      vi.mocked(prisma.document.findFirst).mockResolvedValueOnce(doc as any)
 
       const res = await app.request(
         createRequest('/api/engagements/eng_123/documents/doc_123/send-followup', {

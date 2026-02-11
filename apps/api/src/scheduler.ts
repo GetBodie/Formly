@@ -10,8 +10,8 @@ import { runInBackground, runAllInBackground } from './workers/background.js'
  * Calls business logic directly instead of going through HTTP.
  */
 export function initScheduler() {
-  // Poll storage for new documents every 2 minutes
-  cron.schedule('*/2 * * * *', async () => {
+  // Poll storage for new documents every minute
+  cron.schedule('* * * * *', async () => {
     console.log('[SCHEDULER] Running poll-storage job')
     try {
       const engagements = await prisma.engagement.findMany({
@@ -20,7 +20,7 @@ export function initScheduler() {
 
       runAllInBackground(engagements.map(engagement => () => pollEngagement(engagement)))
 
-      const stuckResult = await retryStuckDocuments(engagements)
+      const stuckResult = await retryStuckDocuments()
 
       console.log('[SCHEDULER] poll-storage result:', {
         queued: engagements.length,
@@ -63,6 +63,6 @@ export function initScheduler() {
   })
 
   console.log('[SCHEDULER] Cron jobs initialized:')
-  console.log('  - poll-storage: every 2 minutes')
+  console.log('  - poll-storage: every minute')
   console.log('  - check-reminders: daily at 9 AM UTC')
 }

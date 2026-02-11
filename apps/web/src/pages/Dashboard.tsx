@@ -113,7 +113,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-[160px] pt-[60px]">
+    <div className="min-h-screen bg-white max-w-screen-xl mx-auto px-6 pt-[60px]">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 

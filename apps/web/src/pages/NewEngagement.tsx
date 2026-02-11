@@ -284,7 +284,7 @@ export default function NewEngagement() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-[160px] pt-[60px]">
+    <div className="min-h-screen bg-white max-w-screen-xl mx-auto px-6 pt-[60px]">
       {/* Back button */}
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>

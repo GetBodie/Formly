@@ -234,12 +234,14 @@ describe('Engagement Routes', () => {
 
   describe('POST /api/engagements/:id/brief', () => {
     it('generates prep brief for READY engagement', async () => {
-      const mockEngagement = createMockEngagement({
-        id: 'eng_123',
-        status: 'READY',
-        checklist: [{ id: 'item_1', title: 'W-2', status: 'received' }],
+      const mockEngagement = {
+        ...createMockEngagement({
+          id: 'eng_123',
+          status: 'READY',
+          checklist: [{ id: 'item_1', title: 'W-2', status: 'received' }],
+        }),
         documents: [{ id: 'doc_1', fileName: 'w2.pdf', documentType: 'W-2' }],
-      })
+      }
       vi.mocked(prisma.engagement.findUnique).mockResolvedValueOnce(mockEngagement as any)
       vi.mocked(prisma.engagement.update).mockResolvedValueOnce({
         ...mockEngagement,

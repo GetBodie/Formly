@@ -27,9 +27,12 @@ model Engagement {
   // All data as JSONB
   intakeData          Json?    @db.JsonB
   checklist           Json?    @db.JsonB
-  documents           Json?    @db.JsonB
+  documents_jsonb     Json?    @db.JsonB @map("documents") // Legacy JSONB, drop in phase 2
   reconciliation      Json?    @db.JsonB
   prepBrief           String?  @db.Text
+
+  // New relation
+  documents           Document[]
 
   // Agent tracking
   lastActivityAt      DateTime?
@@ -39,4 +42,37 @@ model Engagement {
 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+model Document {
+  id                  String     @id @default(uuid())
+  engagementId        String
+  engagement          Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  fileName            String
+  storageItemId       String
+  documentType        String     @default("PENDING")
+  confidence          Float      @default(0)
+  taxYear             Int?
+  issues              String[]   @default([])
+  issueDetails        Json?      @db.JsonB
+  override            Json?      @db.JsonB
+
+  classifiedAt        DateTime?
+  processingStatus    String     @default("pending")
+  processingStartedAt DateTime?
+  retryCount          Int        @default(0)
+
+  approvedAt          DateTime?
+
+  archivedAt          DateTime?
+  archivedReason      String?
+
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([engagementId])
+  @@index([processingStatus])
+  @@index([engagementId, archivedAt])
+  @@index([engagementId, storageItemId])
 }
