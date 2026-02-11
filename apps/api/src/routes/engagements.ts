@@ -8,7 +8,7 @@ import { runReconciliationAgent } from '../lib/agents/reconciliation.js'
 import { generatePrepBrief } from '../lib/openai.js'
 import { runInBackground } from '../workers/background.js'
 import { pollEngagement } from '../lib/poll-engagement.js'
-import type { ChecklistItem, Reconciliation } from '../types.js'
+import type { ChecklistItem, Document, Reconciliation } from '../types.js'
 
 const app = new Hono()
 
@@ -189,7 +189,7 @@ app.post('/:id/brief', async (c) => {
     clientName: engagement.clientName,
     taxYear: engagement.taxYear,
     checklist,
-    documents,
+    documents: documents as unknown as Document[],
     reconciliation: {
       completionPercentage: reconciliation.completionPercentage,
       issues: reconciliation.issues,
