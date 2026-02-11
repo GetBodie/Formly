@@ -25,7 +25,7 @@ describe('DOCUMENT_TYPES', () => {
 
   it('is readonly array', () => {
     expect(Array.isArray(DOCUMENT_TYPES)).toBe(true)
-    expect(DOCUMENT_TYPES).toHaveLength(9)
+    expect(DOCUMENT_TYPES).toHaveLength(24)
   })
 })
 

@@ -1,37 +1,68 @@
 /**
- * Tests for the Agentic Classifier (Claude Vision with OCR Tool)
- * 
- * Note: Full integration tests require actual Claude API calls.
- * These tests cover the helper functions and minimal content handling.
+ * Tests for the Classifier Agent (Two-level reflection with Claude Opus)
+ *
+ * Note: Full integration tests require actual API calls (Claude + OpenAI).
+ * These tests cover: helper functions, invalid input handling, type exports,
+ * and mocked gradeWithLLM behavior.
  */
 
-import { describe, it, expect } from 'vitest'
-import { 
-  classifyDocumentAgentic, 
-  classifyDocumentFromText,
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  classifyDocumentAgentic,
+  gradeWithLLM,
   type ClassificationResult,
-  type DocumentImage 
+  type DocumentImage,
 } from '../classifier-agent.js'
 
 // ============================================
-// HELPER FUNCTIONS
+// MOCKS
 // ============================================
 
-/**
- * Create a minimal DocumentImage for testing
- */
+const { mockParse } = vi.hoisted(() => ({
+  mockParse: vi.fn(),
+}))
+
+vi.mock('openai', () => ({
+  default: vi.fn(() => ({
+    chat: {
+      completions: {
+        parse: mockParse,
+        create: vi.fn().mockResolvedValue({
+          choices: [{ message: { content: 'OCR text' } }],
+        }),
+      },
+    },
+  })),
+}))
+
+vi.mock('openai/helpers/zod', () => ({
+  zodResponseFormat: vi.fn((schema, name) => ({
+    type: 'json_schema',
+    json_schema: { name },
+  })),
+}))
+
+// ============================================
+// HELPERS
+// ============================================
+
 function createTestImage(base64Content = ''): DocumentImage {
   return {
     base64: base64Content,
-    mimeType: 'image/png'
+    mimeType: 'image/png',
   }
 }
 
 // ============================================
-// VISION-BASED CLASSIFICATION
+// INVALID/EMPTY INPUT HANDLING
 // ============================================
 
-describe('classifyDocumentAgentic (vision)', () => {
+describe('classifyDocumentAgentic', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.resetAllMocks()
+  })
+
   describe('Invalid/Empty Image Handling', () => {
     it('should return early with low confidence for empty base64', async () => {
       const result = await classifyDocumentAgentic(
@@ -67,7 +98,6 @@ describe('classifyDocumentAgentic (vision)', () => {
         2024
       )
 
-      // Check all required properties exist
       expect(result).toHaveProperty('documentType')
       expect(result).toHaveProperty('confidence')
       expect(result).toHaveProperty('taxYear')
@@ -75,7 +105,6 @@ describe('classifyDocumentAgentic (vision)', () => {
       expect(result).toHaveProperty('extractedFields')
       expect(result).toHaveProperty('needsHumanReview')
 
-      // Check types
       expect(typeof result.documentType).toBe('string')
       expect(typeof result.confidence).toBe('number')
       expect(Array.isArray(result.issues)).toBe(true)
@@ -95,61 +124,98 @@ describe('classifyDocumentAgentic (vision)', () => {
 })
 
 // ============================================
-// TEXT-BASED CLASSIFICATION (LEGACY)
+// GRADING FUNCTION
 // ============================================
 
-describe('classifyDocumentFromText (legacy)', () => {
-  describe('Minimal Content Handling', () => {
-    it('should return early with low confidence for minimal content', async () => {
-      const result = await classifyDocumentFromText('short text', 'tiny.pdf', 2024)
-
-      expect(result.documentType).toBe('OTHER')
-      expect(result.confidence).toBeLessThanOrEqual(0.5)
-      expect(result.issues.some(i => i.includes('minimal content') || i.includes('blank'))).toBe(true)
-      expect(result.needsHumanReview).toBe(true)
-    })
-
-    it('should return early for empty string', async () => {
-      const result = await classifyDocumentFromText('', 'empty.pdf', 2024)
-
-      expect(result.documentType).toBe('OTHER')
-      expect(result.confidence).toBeLessThanOrEqual(0.5)
-      expect(result.needsHumanReview).toBe(true)
-    })
-
-    it('should return early for whitespace-only content', async () => {
-      const result = await classifyDocumentFromText('   \n\t\n   ', 'whitespace.pdf', 2024)
-
-      expect(result.documentType).toBe('OTHER')
-      expect(result.confidence).toBeLessThanOrEqual(0.5)
-    })
+describe('gradeWithLLM', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
-  describe('Result Structure', () => {
-    it('should return expected properties', async () => {
-      const result = await classifyDocumentFromText('', 'test.pdf', 2024)
-
-      // Check all required properties exist
-      expect(result).toHaveProperty('documentType')
-      expect(result).toHaveProperty('confidence')
-      expect(result).toHaveProperty('taxYear')
-      expect(result).toHaveProperty('issues')
-      expect(result).toHaveProperty('extractedFields')
-      expect(result).toHaveProperty('needsHumanReview')
-
-      // Check types
-      expect(typeof result.documentType).toBe('string')
-      expect(typeof result.confidence).toBe('number')
-      expect(Array.isArray(result.issues)).toBe(true)
-      expect(typeof result.extractedFields).toBe('object')
-      expect(typeof result.needsHumanReview).toBe('boolean')
+  it('should return a grade with all required fields', async () => {
+    mockParse.mockResolvedValueOnce({
+      choices: [{
+        message: {
+          parsed: {
+            score: 0.92,
+            issues: [],
+            likely_correct_type: true,
+            suggestion: 'All fields present',
+            retry_instructions: 'No changes needed.',
+          },
+        },
+      }],
     })
 
-    it('should have confidence between 0 and 1', async () => {
-      const result = await classifyDocumentFromText('', 'test.pdf')
-      expect(result.confidence).toBeGreaterThanOrEqual(0)
-      expect(result.confidence).toBeLessThanOrEqual(1)
+    const grade = await gradeWithLLM(
+      { employer_name: 'Acme Corp', wages_box1: 50000, tax_year: 2024 },
+      'W-2'
+    )
+
+    expect(grade.score).toBe(0.92)
+    expect(grade.likely_correct_type).toBe(true)
+    expect(grade.issues).toEqual([])
+    expect(grade.retry_instructions).toBeTruthy()
+  })
+
+  it('should return low score for empty fields', async () => {
+    mockParse.mockResolvedValueOnce({
+      choices: [{
+        message: {
+          parsed: {
+            score: 0.2,
+            issues: ['[WARNING:incomplete::] Document appears to be a blank form'],
+            likely_correct_type: true,
+            suggestion: 'Blank form detected',
+            retry_instructions: 'Check if document has any filled values.',
+          },
+        },
+      }],
     })
+
+    const grade = await gradeWithLLM(
+      { employer_name: null, wages_box1: null, tax_year: null },
+      'W-2'
+    )
+
+    expect(grade.score).toBeLessThan(0.5)
+    expect(grade.issues.length).toBeGreaterThan(0)
+  })
+
+  it('should indicate wrong type when fields do not match', async () => {
+    mockParse.mockResolvedValueOnce({
+      choices: [{
+        message: {
+          parsed: {
+            score: 0.3,
+            issues: ['[ERROR:wrong_type:W-2:1099-NEC] Fields suggest this is a 1099-NEC'],
+            likely_correct_type: false,
+            suggestion: 'Try classifying as 1099-NEC',
+            retry_instructions: 'This appears to be a 1099-NEC, not a W-2. Look for box 1 nonemployee compensation.',
+          },
+        },
+      }],
+    })
+
+    const grade = await gradeWithLLM(
+      { payer_name: 'Client Inc', nonemployee_compensation_box1: 15000 },
+      'W-2'
+    )
+
+    expect(grade.likely_correct_type).toBe(false)
+    expect(grade.score).toBeLessThan(0.5)
+  })
+
+  it('should return fallback grade when parse fails', async () => {
+    mockParse.mockResolvedValueOnce({
+      choices: [{ message: { parsed: null } }],
+    })
+
+    const grade = await gradeWithLLM({ some_field: 'value' }, 'OTHER')
+
+    expect(grade.score).toBe(0.5)
+    expect(grade.issues.some(i => i.includes('parse_error'))).toBe(true)
   })
 })
 
@@ -159,17 +225,15 @@ describe('classifyDocumentFromText (legacy)', () => {
 
 describe('Type Exports', () => {
   it('should export ClassificationResult type', () => {
-    // This test verifies the type is correctly exported
-    // TypeScript will fail compilation if the type doesn't match
     const result: ClassificationResult = {
       documentType: 'W-2',
       confidence: 0.9,
       taxYear: 2024,
       issues: [],
       extractedFields: { wages: 50000 },
-      needsHumanReview: false
+      needsHumanReview: false,
     }
-    
+
     expect(result.documentType).toBe('W-2')
     expect(result.needsHumanReview).toBe(false)
   })
@@ -178,16 +242,11 @@ describe('Type Exports', () => {
     const image: DocumentImage = {
       base64: 'dGVzdA==',
       mimeType: 'image/png',
-      presignedUrl: 'https://example.com/doc.pdf'
+      presignedUrl: 'https://example.com/doc.pdf',
     }
-    
+
     expect(image.base64).toBe('dGVzdA==')
     expect(image.mimeType).toBe('image/png')
     expect(image.presignedUrl).toBe('https://example.com/doc.pdf')
   })
 })
-
-// ============================================
-// NOTE: Full integration tests with Claude API
-// should be run separately with ANTHROPIC_API_KEY set.
-// ============================================

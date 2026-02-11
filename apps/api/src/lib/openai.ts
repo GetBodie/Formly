@@ -21,14 +21,29 @@ For each item include:
 - priority: high/medium/low
 - status: "pending"
 - documentIds: empty array []
-- expectedDocumentType: The document type that will satisfy this item. Must be one of: W-2, 1099-NEC, 1099-MISC, 1099-INT, K-1, RECEIPT, STATEMENT, OTHER
+- expectedDocumentType: The document type that will satisfy this item. Must be one of: W-2, 1099-NEC, 1099-INT, 1099-DIV, 1099-B, 1099-R, 1099-MISC, 1099-G, 1099-K, SSA-1099, 1098, 1098-T, SCHEDULE-A, SCHEDULE-C, SCHEDULE-D, SCHEDULE-E, K-1, FORM-1065, FORM-1120-S, FORM-941, RECEIPT, STATEMENT, OTHER
 
 The expectedDocumentType is CRITICAL for automatic document matching. Use the exact type that will be uploaded:
 - Employment income → W-2
 - Freelance/contractor income → 1099-NEC
 - Interest income → 1099-INT
-- Miscellaneous income → 1099-MISC
+- Dividend income → 1099-DIV
+- Brokerage/stock sales → 1099-B
+- Retirement distributions (pension, IRA, 401k) → 1099-R
+- Miscellaneous income (rents, royalties) → 1099-MISC
+- Government payments (unemployment, state tax refund) → 1099-G
+- Payment card / third-party network income → 1099-K
+- Social Security benefits → SSA-1099
+- Mortgage interest → 1098
+- Tuition payments → 1098-T
+- Itemized deductions → SCHEDULE-A
+- Business profit/loss (sole proprietor) → SCHEDULE-C
+- Capital gains/losses → SCHEDULE-D
+- Rental/supplemental income → SCHEDULE-E
 - Partnership/S-Corp distributions → K-1
+- Partnership return → FORM-1065
+- S Corporation return → FORM-1120-S
+- Employer quarterly tax → FORM-941
 - Business expenses, charitable donations → RECEIPT
 - Bank/investment statements → STATEMENT
 - Other documents → OTHER`,
