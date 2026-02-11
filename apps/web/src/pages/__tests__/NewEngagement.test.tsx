@@ -232,6 +232,57 @@ describe('NewEngagement', () => {
     expect(screen.getByText(/Unable to detect provider/)).toBeInTheDocument()
   })
 
+  it('auto-selects provider when pasting cloud storage URL', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<NewEngagement />)
+
+    // Initially no provider is selected
+    const dropboxBtn = screen.getByRole('button', { name: 'Dropbox' })
+    const googleBtn = screen.getByRole('button', { name: 'Google Drive' })
+    
+    // Paste a Dropbox URL
+    await user.type(
+      screen.getByLabelText(/Storage Folder URL/i),
+      'https://www.dropbox.com/sh/test123/xyz'
+    )
+
+    // Dropbox should now be auto-selected (has selected styling)
+    await waitFor(() => {
+      expect(dropboxBtn).toHaveClass('border-[#042f84]')
+    })
+    expect(googleBtn).not.toHaveClass('border-[#042f84]')
+  })
+
+  it('auto-selects Google Drive when pasting drive.google.com URL', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<NewEngagement />)
+
+    await user.type(
+      screen.getByLabelText(/Storage Folder URL/i),
+      'https://drive.google.com/drive/folders/abc123'
+    )
+
+    await waitFor(() => {
+      const googleBtn = screen.getByRole('button', { name: 'Google Drive' })
+      expect(googleBtn).toHaveClass('border-[#042f84]')
+    })
+  })
+
+  it('auto-selects SharePoint when pasting sharepoint.com or onedrive.com URL', async () => {
+    const user = userEvent.setup()
+    renderWithRouter(<NewEngagement />)
+
+    await user.type(
+      screen.getByLabelText(/Storage Folder URL/i),
+      'https://company.sharepoint.com/sites/docs'
+    )
+
+    await waitFor(() => {
+      const sharepointBtn = screen.getByRole('button', { name: 'SharePoint/OneDrive' })
+      expect(sharepointBtn).toHaveClass('border-[#042f84]')
+    })
+  })
+
   // Phase 2: Provider Selector Tests
   describe('Provider Selector', () => {
     it('renders provider selection buttons', () => {
