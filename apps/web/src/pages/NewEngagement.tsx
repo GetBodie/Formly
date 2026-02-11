@@ -82,6 +82,13 @@ export default function NewEngagement() {
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null)
 
   const detectedProvider = useMemo(() => detectProvider(storageFolderUrl), [storageFolderUrl])
+
+  // Auto-select provider when URL is pasted and no provider is currently selected
+  useEffect(() => {
+    if (detectedProvider && !selectedProvider) {
+      setSelectedProvider(detectedProvider)
+    }
+  }, [detectedProvider, selectedProvider])
   
   // Validation: if provider is selected, URL must match that provider
   const urlMismatch = useMemo(() => {
@@ -91,6 +98,19 @@ export default function NewEngagement() {
   }, [selectedProvider, storageFolderUrl])
 
   const currentConfig = selectedProvider ? PROVIDER_CONFIG[selectedProvider] : null
+
+  // Reset connecting state when page restored from bfcache (e.g., user exits OAuth flow)
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Page was restored from back-forward cache
+        setIsConnecting(false)
+      }
+    }
+    
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [])
 
   // Handle OAuth callback on mount
   useEffect(() => {
