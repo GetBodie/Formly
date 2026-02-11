@@ -393,13 +393,7 @@ export async function classifyDocumentFromText(
     }
   }
 
-  // Create a fake image with the OCR text embedded (for the tool to use)
-  const fakeImage: DocumentImage = {
-    base64: '',
-    mimeType: 'text/plain'
-  }
-  
-  // For text-based classification, we'll use a modified prompt
+  // For text-based classification, we use a modified prompt without vision
   const systemPrompt = `You are a tax document classifier. Your goal is to identify the document type and extract key fields.
 
 WORKFLOW:
