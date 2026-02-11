@@ -1,7 +1,7 @@
 import { prisma } from '../prisma.js'
-import { classifyDocumentAgentic } from './classifier-agent.js'
+import { classifyDocumentAgentic, type DocumentImage } from './classifier-agent.js'
 import { getStorageClient, type StorageProvider } from '../storage/index.js'
-import { extractDocument, isSupportedFileType } from '../document-extraction.js'
+import { isSupportedFileType } from '../document-extraction.js'
 import type { Document } from '../../types.js'
 
 // Processing timeout: 5 minutes max per document
@@ -21,8 +21,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Pro
 }
 
 /**
- * Fast document assessment - direct function calls, no agent overhead.
- * ~3x faster than the agent-based approach.
+ * Fast document assessment - sends image directly to Claude Vision.
+ * Claude can optionally call ocr_extract tool for complex documents.
  * Includes timeout enforcement (5 min max) and retry count tracking.
  */
 export async function runAssessmentFast(context: {
@@ -71,7 +71,7 @@ export async function runAssessmentFast(context: {
     const provider = (engagement.storageProvider || 'dropbox') as StorageProvider
     const client = getStorageClient(provider)
     
-    const { buffer, mimeType, size } = await withTimeout(
+    const { buffer, mimeType, size, presignedUrl } = await withTimeout(
       client.downloadFile(
         storageItemId,
         {
@@ -90,30 +90,27 @@ export async function runAssessmentFast(context: {
       throw new Error(`Unsupported file type: ${mimeType}`)
     }
 
-    // 2. OCR extraction with timeout (update status in memory, not DB)
-    documents[docIndex].processingStatus = 'extracting'
-    
-    const base64 = buffer.toString('base64')
-    const dataUri = `data:${mimeType};base64,${base64}`
-    const extraction = await withTimeout(
-      extractDocument(dataUri, buffer, mimeType),
-      PROCESSING_TIMEOUT_MS / 2, // Allow ~2.5 min for OCR
-      `OCR extraction ${fileName}`
-    )
-    
-    console.log(`[FAST] Extracted ${fileName} (${extraction.markdown.length} chars)`)
-
-    // 3. Classification with timeout (update status in memory)
-    // Uses agentic loop: extract → grade → feedback → retry (max 3 attempts)
+    // 2. Prepare document image for classification
     documents[docIndex].processingStatus = 'classifying'
     
+    const base64 = buffer.toString('base64')
+    const documentImage: DocumentImage = {
+      base64,
+      mimeType,
+      presignedUrl // Used by OCR tool if Claude calls it
+    }
+    
+    console.log(`[FAST] Sending ${fileName} to classifier (${Math.round(size / 1024)}KB, ${mimeType})`)
+
+    // 3. Classification with vision + optional OCR tool
+    // Claude sees the image directly, can call ocr_extract if needed
     const classification = await withTimeout(
       classifyDocumentAgentic(
-        extraction.markdown.slice(0, 15000), // Increased limit for better extraction
+        documentImage,
         fileName,
         engagement.taxYear
       ),
-      PROCESSING_TIMEOUT_MS / 2, // Allow more time for agentic loop (~2.5 min)
+      PROCESSING_TIMEOUT_MS * 0.8, // Allow most of the time for classification (~4 min)
       `classification ${fileName}`
     )
     
