@@ -45,7 +45,11 @@ const formDefinition = {
       title: "Thanks! We'll send you a personalized document checklist shortly.",
       properties: {
         description: 'Check your email for next steps.',
-        show_button: false
+        show_button: true,
+        button_text: 'Visit Bodie',
+        button_mode: 'redirect',
+        redirect_url: 'https://getbodie.ai',
+        share_icons: false
       }
     }
   ],
