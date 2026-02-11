@@ -78,7 +78,7 @@ describe('dropboxClient', () => {
         })
       })
 
-      it('uses shared link URL when provided', async () => {
+      it('uses shared link URL when folderId is empty', async () => {
         const sharedLinkUrl = 'https://www.dropbox.com/sh/abc123/xyz'
         mockFilesListFolder.mockResolvedValueOnce({
           result: {
@@ -90,7 +90,8 @@ describe('dropboxClient', () => {
           },
         })
 
-        const result = await dropboxClient.syncFolder('/shared-folder', null, { sharedLinkUrl })
+        // When folderId is empty, use shared link
+        const result = await dropboxClient.syncFolder('', null, { sharedLinkUrl })
 
         expect(mockFilesListFolder).toHaveBeenCalledWith({
           path: '',
@@ -98,6 +99,28 @@ describe('dropboxClient', () => {
           recursive: false,
         })
         expect(result.files[0].id).toBe('/doc.pdf')
+      })
+
+      it('prefers folderId over sharedLinkUrl when both provided', async () => {
+        const sharedLinkUrl = 'https://www.dropbox.com/sh/abc123/xyz'
+        mockFilesListFolder.mockResolvedValueOnce({
+          result: {
+            entries: [
+              { '.tag': 'file', id: 'id:doc1', name: 'doc.pdf' },
+            ],
+            cursor: 'cursor_direct',
+            has_more: false,
+          },
+        })
+
+        // When folderId is provided, prefer direct path listing
+        const result = await dropboxClient.syncFolder('/my-folder', null, { sharedLinkUrl })
+
+        expect(mockFilesListFolder).toHaveBeenCalledWith({
+          path: '/my-folder',
+          recursive: false,
+        })
+        expect(result.files[0].id).toBe('id:doc1')
       })
     })
 
