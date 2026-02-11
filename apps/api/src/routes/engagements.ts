@@ -113,6 +113,7 @@ const UpdateEngagementSchema = z.object({
   storageDriveId: z.string().optional(),
   storageFolderUrl: z.string().url().nullable().optional(),
   storageProvider: z.enum(['dropbox', 'google-drive']).optional(),
+  storagePageToken: z.string().nullable().optional(),
   status: z.enum(['PENDING', 'INTAKE_DONE', 'COLLECTING', 'READY']).optional(),
 })
 
@@ -144,6 +145,10 @@ app.patch('/:id', zValidator('json', UpdateEngagementSchema), async (c) => {
 
   if (body.storageProvider !== undefined) {
     updateData.storageProvider = body.storageProvider
+  }
+
+  if (body.storagePageToken !== undefined) {
+    updateData.storagePageToken = body.storagePageToken
   }
 
   if (body.status !== undefined) {
