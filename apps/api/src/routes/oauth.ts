@@ -201,6 +201,8 @@ oauth.post('/folders/:provider', async (c) => {
     let folders: Array<{ id: string; name: string; path?: string }> = []
     
     if (provider === 'dropbox') {
+      const listPath = folderId || ''
+      console.log(`[OAUTH] Dropbox list_folder path="${listPath}"`)
       const response = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
         method: 'POST',
         headers: {
@@ -208,16 +210,25 @@ oauth.post('/folders/:provider', async (c) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          path: folderId || '',
+          path: listPath,
           recursive: false,
+          include_mounted_folders: true,
+          include_non_downloadable_files: false,
         }),
       })
-      
-      if (!response.ok) throw new Error('Failed to list Dropbox folders')
-      
+
+      if (!response.ok) {
+        const errText = await response.text()
+        console.error(`[OAUTH] Dropbox list_folder error ${response.status}:`, errText)
+        throw new Error(`Dropbox API error: ${response.status}`)
+      }
+
       const data = await response.json() as any
-      folders = data.entries
-        .filter((entry: { '.tag': string }) => entry['.tag'] === 'folder')
+      const allEntries = data.entries || []
+      const folderEntries = allEntries.filter((entry: { '.tag': string }) => entry['.tag'] === 'folder')
+      console.log(`[OAUTH] Dropbox list_folder: ${allEntries.length} total entries, ${folderEntries.length} folders`)
+
+      folders = folderEntries
         .map((entry: { id: string; name: string; path_display: string }) => ({
           id: entry.path_display, // Use path as ID for Dropbox
           name: entry.name,
