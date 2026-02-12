@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import NewEngagement from './pages/NewEngagement'
 import EngagementDetail from './pages/EngagementDetail'
+import Admin from './pages/Admin'
 import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/engagements/new" element={<NewEngagement />} />
           <Route path="/engagements/:id" element={<EngagementDetail />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>
