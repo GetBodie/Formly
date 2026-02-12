@@ -857,7 +857,7 @@ function DocumentPanel({
           <button
             onClick={() => onApprove(doc.id)}
             disabled={actionInProgress !== null}
-            className="inline-flex items-center gap-1.5 h-8 px-4 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-4 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
             {actionInProgress === 'approve' ? 'Approving...' : 'Approve Anyway'}
@@ -865,7 +865,7 @@ function DocumentPanel({
           <button
             onClick={() => onOpenEmail(doc.id)}
             disabled={actionInProgress !== null}
-            className="inline-flex items-center gap-1.5 h-8 px-4 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-4 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
             Generate Email Follow-Up
