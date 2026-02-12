@@ -17,6 +17,7 @@ import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
 import { z } from 'zod'
 import { CLASSIFIABLE_DOCUMENT_TYPES } from '../../types.js'
+import { normalizeIssues } from '../issues.js'
 
 const anthropic = new Anthropic()
 const openai = new OpenAI()
@@ -341,10 +342,27 @@ Score 0.0-1.0:
 - 0.50-0.69: Key fields missing or suspicious values
 - 0.0-0.49: Wrong form type, blank form, or mostly unreadable
 
-Issue format: [SEVERITY:type:expected:detected] Description
-- SEVERITY: ERROR or WARNING
+ISSUE FORMAT (STRICT - follow exactly):
+Each issue MUST be formatted as: [SEVERITY:type:expected:detected] Human-readable description
+
+- Wrap the code portion in square brackets []
+- SEVERITY: ERROR (blocks tax prep) or WARNING (needs review)
 - type: missing_field, wrong_year, invalid_format, wrong_type, incomplete, suspicious_value
-- expected/detected: actual values when available
+- expected/detected: the actual values (use "null" if not detected)
+- Human-readable description: A plain English explanation that a user can understand (REQUIRED!)
+
+CORRECT EXAMPLES:
+✓ [ERROR:missing_field:employer_name:null] Employer name is required but was not found on the document
+✓ [ERROR:missing_field:wages_box1:null] Wages in Box 1 are missing - this is required for W-2 processing
+✓ [WARNING:suspicious_value:wages_box1:0.03] Wages amount of $0.03 seems unusually low
+✓ [ERROR:invalid_format:employer_ein:1234567] EIN should be in XX-XXXXXXX format
+✓ [WARNING:wrong_year:2024:2023] Document appears to be from tax year 2023, expected 2024
+✓ [ERROR:wrong_type:W-2:1099-NEC] This appears to be a 1099-NEC, not a W-2
+
+WRONG EXAMPLES (DO NOT output like this):
+✗ ERROR:missing_field:employer_name:detected:null  (missing brackets and description)
+✗ missing_field:employer_name  (missing severity, brackets, and description)
+✗ [ERROR:missing_field:employer_name:null]  (missing human-readable description after brackets)
 
 IMPORTANT: Always provide retry_instructions — actionable directions for the extraction model
 to improve on the next attempt. Be specific about WHERE to look on the form.
@@ -372,7 +390,12 @@ NOT: "score was 0.6, employer_ein missing" (not actionable)`
       retry_instructions: 'Try extracting again with more care for field locations.',
     }
   }
-  return parsed
+
+  // Normalize issues to ensure consistent format (safety net for LLM output)
+  return {
+    ...parsed,
+    issues: normalizeIssues(parsed.issues),
+  }
 }
 
 // ============================================
@@ -763,8 +786,8 @@ FINISH CONDITIONS:
 - likely_correct_type=false → Try the type suggested in the grade.
 - Budget exhausted → The system will stop you. Output your final assessment.
 
-ISSUE FORMAT: [SEVERITY:type:expected:detected] Description
-- SEVERITY: ERROR (blocks tax prep) or WARNING (needs review)
+ISSUE FORMAT: [SEVERITY:type:expected:detected] Human-readable description
+Example: [ERROR:missing_field:employer_name:null] Employer name is required but was not found
 
 FILE NAME: ${fileName}
 EXPECTED TAX YEAR: ${expectedTaxYear || 'any'}`

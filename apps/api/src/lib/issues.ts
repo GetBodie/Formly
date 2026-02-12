@@ -7,6 +7,117 @@
  *   [WARNING:low_confidence::] Classification confidence below 70%
  */
 
+// ============================================
+// ISSUE NORMALIZATION (LLM output safety net)
+// ============================================
+
+/**
+ * Generate a human-readable description for an issue based on type and fields.
+ */
+function generateDescription(
+  type: string,
+  expected: string | null,
+  detected: string | null
+): string {
+  const fieldName = expected?.replace(/_/g, ' ') || 'field'
+  const detectedValue = detected && detected !== 'null' ? detected : 'not detected'
+
+  switch (type) {
+    case 'missing_field':
+      return `${capitalizeFirst(fieldName)} is required but was not found on the document`
+    case 'invalid_format':
+      return `${capitalizeFirst(fieldName)} has invalid format (found: ${detectedValue})`
+    case 'wrong_year':
+      return `Document appears to be from tax year ${detectedValue}, expected ${expected || 'different year'}`
+    case 'wrong_type':
+      return `Document appears to be a ${detectedValue}, not ${expected || 'expected type'}`
+    case 'suspicious_value':
+      return `${capitalizeFirst(fieldName)} value of ${detectedValue} seems unusual`
+    case 'incomplete':
+      return `Document appears incomplete or missing data`
+    default:
+      return `Issue with ${fieldName}: ${detectedValue}`
+  }
+}
+
+function capitalizeFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/**
+ * Normalize a potentially malformed issue string into the correct format.
+ * Handles cases where LLM outputs raw format without brackets or description.
+ *
+ * Transforms:
+ *   ERROR:missing_field:employer_name:detected:null
+ * Into:
+ *   [ERROR:missing_field:employer_name:null] Employer name is required but was not found
+ */
+export function normalizeIssue(issue: string): string {
+  // Already in correct format - has brackets and description
+  if (/^\[[\w:]+\]\s+.+$/.test(issue)) {
+    return issue
+  }
+
+  // Has brackets but missing description: [ERROR:missing_field:employer_name:null]
+  const bracketsOnlyMatch = issue.match(/^\[(ERROR|WARNING):(\w+):([^:]*):([^\]]*)\]$/)
+  if (bracketsOnlyMatch) {
+    const [, severity, type, expected, detected] = bracketsOnlyMatch
+    const description = generateDescription(type, expected, detected)
+    return `[${severity}:${type}:${expected}:${detected}] ${description}`
+  }
+
+  // Raw format with 5 parts: ERROR:missing_field:employer_name:detected:null
+  const raw5Match = issue.match(/^(ERROR|WARNING):(\w+):([^:]*):detected:(.*)$/)
+  if (raw5Match) {
+    const [, severity, type, expected, detected] = raw5Match
+    const description = generateDescription(type, expected, detected)
+    return `[${severity}:${type}:${expected}:${detected}] ${description}`
+  }
+
+  // Raw format with 4 parts: ERROR:missing_field:employer_name:null
+  const raw4Match = issue.match(/^(ERROR|WARNING):(\w+):([^:]*):(.*)$/)
+  if (raw4Match) {
+    const [, severity, type, expected, detected] = raw4Match
+    const description = generateDescription(type, expected, detected)
+    return `[${severity}:${type}:${expected}:${detected}] ${description}`
+  }
+
+  // Raw format with 3 parts: ERROR:missing_field:employer_name
+  const raw3Match = issue.match(/^(ERROR|WARNING):(\w+):(.+)$/)
+  if (raw3Match) {
+    const [, severity, type, field] = raw3Match
+    const description = generateDescription(type, field, null)
+    return `[${severity}:${type}:${field}:null] ${description}`
+  }
+
+  // Raw format with 2 parts: ERROR:missing_field
+  const raw2Match = issue.match(/^(ERROR|WARNING):(\w+)$/)
+  if (raw2Match) {
+    const [, severity, type] = raw2Match
+    const description = generateDescription(type, null, null)
+    return `[${severity}:${type}::] ${description}`
+  }
+
+  // Can't normalize - return as-is with warning wrapper
+  if (!issue.startsWith('[')) {
+    return `[WARNING:other::] ${issue}`
+  }
+
+  return issue
+}
+
+/**
+ * Normalize an array of issues, fixing any malformed LLM output.
+ */
+export function normalizeIssues(issues: string[]): string[] {
+  return issues.map(normalizeIssue)
+}
+
+// ============================================
+// ISSUE PARSING
+// ============================================
+
 export interface ParsedIssue {
   severity: 'error' | 'warning'
   type: string
