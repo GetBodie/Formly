@@ -70,8 +70,12 @@ function checkReady(
     d.issues && d.issues.length > 0 && !d.approvedAt
   )
 
+  // All documents approved = ready (user has manually verified everything)
+  const allDocsApproved = documents.length > 0 && documents.every(d => d.approvedAt)
+
   const isReady = (completionPercentage === 100) ||
-    (highPriorityComplete && documentsWithUnresolvedIssues.length === 0)
+    (highPriorityComplete && documentsWithUnresolvedIssues.length === 0) ||
+    allDocsApproved
 
   const reasons: string[] = []
   if (!isReady) {
@@ -83,6 +87,12 @@ function checkReady(
     }
     if (completionPercentage !== 100) {
       reasons.push(`Completion is ${completionPercentage}%, not 100%`)
+    }
+    if (!allDocsApproved) {
+      const unapproved = documents.filter(d => !d.approvedAt).length
+      if (unapproved > 0) {
+        reasons.push(`${unapproved} document(s) not yet approved`)
+      }
     }
   }
 

@@ -306,11 +306,13 @@ export default function EngagementDetail() {
   const allDocuments = (engagement.documents as Document[]) || []
   const visibleDocuments = showArchived ? allDocuments : allDocuments.filter(d => !d.archivedAt)
   const reconciliation = engagement.reconciliation as Reconciliation | null
+  const checklist = (engagement.checklist || []) as Array<{ id: string; title: string; priority: 'high' | 'medium' | 'low'; status: string }>
 
   const completionPct = reconciliation?.completionPercentage ?? 0
   const errorDocs = visibleDocuments.filter(d => getDocStatus(d) === 'error')
   const warningDocs = visibleDocuments.filter(d => getDocStatus(d) === 'warning')
   const timeSaved = Math.round(visibleDocuments.length * 0.75)
+  const missingItems = checklist.filter(item => item.status === 'pending')
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
   return (
@@ -415,6 +417,28 @@ export default function EngagementDetail() {
             <div className="text-2xl font-semibold tracking-tight">{timeSaved}hrs</div>
           </div>
         </div>
+
+        {/* Missing Documents Alert */}
+        {missingItems.length > 0 && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+              <span className="font-medium text-red-800">Missing Documents ({missingItems.length})</span>
+            </div>
+            <ul className="ml-7 space-y-1">
+              {missingItems.map(item => (
+                <li key={item.id} className="text-sm text-red-700 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${item.priority === 'high' ? 'bg-red-500' : item.priority === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'}`} />
+                  {item.title}
+                  {item.priority === 'high' && <span className="text-xs text-red-500 font-medium">(Required)</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Split Panel */}
         <div className="flex gap-[3px]">
