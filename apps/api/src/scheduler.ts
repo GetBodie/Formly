@@ -17,7 +17,6 @@ export function initScheduler() {
       const engagements = await prisma.engagement.findMany({
         where: {
           status: { in: ['INTAKE_DONE', 'COLLECTING'] },
-          storageProvider: { not: 'dropbox' },
         },
       })
 
