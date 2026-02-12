@@ -203,9 +203,11 @@ export default function NewEngagement() {
     }
   }
 
+  const [confirmedFolder, setConfirmedFolder] = useState<Folder | null>(null)
+
   async function handleUseSelectedFolder() {
     if (!selectedFolder || !oauthTokens) return
-    
+
     setLoadingFolders(true)
     try {
       const response = await fetch(`${API_URL}/api/oauth/folder-url/${oauthTokens.provider}`, {
@@ -217,12 +219,12 @@ export default function NewEngagement() {
           folderPath: selectedFolder.path,
         }),
       })
-      
+
       if (!response.ok) throw new Error('Failed to get folder URL')
-      
+
       const data = await response.json()
       setStorageFolderUrl(data.folderUrl)
-      setInputMode('url') // Switch to URL mode to show the resolved URL
+      setConfirmedFolder(selectedFolder)
     } catch (err) {
       console.error('Failed to get folder URL:', err)
       setError('Failed to select folder. Please try again.')
@@ -280,6 +282,8 @@ export default function NewEngagement() {
     setFolders([])
     setFolderPath([])
     setSelectedFolder(null)
+    setConfirmedFolder(null)
+    setStorageFolderUrl('')
     setInputMode('url')
   }
 
@@ -450,6 +454,45 @@ export default function NewEngagement() {
                             <>Connect {PROVIDER_LABELS[selectedProvider]}</>
                           )}
                         </button>
+                      </div>
+                    ) : confirmedFolder ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs text-green-600 flex items-center gap-1">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+                            Connected to {PROVIDER_LABELS[oauthTokens.provider]}
+                          </p>
+                        </div>
+
+                        <div className="border border-green-200 bg-green-50 rounded-lg p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <svg className="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" /></svg>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{confirmedFolder.name}</p>
+                              {confirmedFolder.path && (
+                                <p className="text-xs text-gray-500">{confirmedFolder.path}</p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmedFolder(null)
+                              setStorageFolderUrl('')
+                              setSelectedFolder(null)
+                              if (oauthTokens) loadFolders(oauthTokens)
+                            }}
+                            className="text-xs text-gray-500 hover:text-gray-700"
+                          >
+                            Change
+                          </button>
+                        </div>
+
+                        <input
+                          type="hidden"
+                          name="storageFolderUrl"
+                          value={storageFolderUrl}
+                        />
                       </div>
                     ) : (
                       <div>
