@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import crypto from 'crypto'
 import type { StorageProvider } from '../lib/storage/types.js'
 
 function ensureUrl(val: string | undefined): string | undefined {
@@ -8,22 +9,26 @@ function ensureUrl(val: string | undefined): string | undefined {
 
 const oauth = new Hono()
 
-// In-memory state storage (in production, use Redis or database)
-const oauthStates = new Map<string, { provider: StorageProvider; createdAt: number }>()
+const STATE_SECRET = process.env.CRON_SECRET || process.env.TYPEFORM_WEBHOOK_SECRET || 'oauth-state-fallback'
+const STATE_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
 
-// Clean up expired states (older than 10 minutes)
-function cleanupExpiredStates() {
-  const now = Date.now()
-  for (const [state, data] of oauthStates.entries()) {
-    if (now - data.createdAt > 10 * 60 * 1000) {
-      oauthStates.delete(state)
-    }
-  }
+// Self-contained signed state — no server-side storage needed, survives container restarts
+function generateState(provider: StorageProvider): string {
+  const timestamp = Date.now().toString()
+  const data = `${provider}.${timestamp}`
+  const signature = crypto.createHmac('sha256', STATE_SECRET).update(data).digest('hex').slice(0, 16)
+  return `${data}.${signature}`
 }
 
-// Generate random state for CSRF protection
-function generateState(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+function validateState(state: string): { provider: StorageProvider; valid: boolean } {
+  const parts = state.split('.')
+  if (parts.length !== 3) return { provider: 'dropbox', valid: false }
+  const [provider, timestamp, signature] = parts
+
+  if (Date.now() - parseInt(timestamp) > STATE_EXPIRY_MS) return { provider: provider as StorageProvider, valid: false }
+
+  const expectedSig = crypto.createHmac('sha256', STATE_SECRET).update(`${provider}.${timestamp}`).digest('hex').slice(0, 16)
+  return { provider: provider as StorageProvider, valid: signature === expectedSig }
 }
 
 // OAuth configuration for each provider
@@ -84,9 +89,7 @@ oauth.get('/auth/:provider', (c) => {
     return c.json({ error: `OAuth not configured for ${provider}` }, 500)
   }
   
-  cleanupExpiredStates()
-  const state = generateState()
-  oauthStates.set(state, { provider, createdAt: Date.now() })
+  const state = generateState(provider)
   
   const redirectUri = `${ensureUrl(process.env.API_URL) || 'http://localhost:3009'}/api/oauth/callback/${provider}`
   
@@ -123,7 +126,8 @@ oauth.get('/callback/:provider', async (c) => {
   const error = c.req.query('error')
   
   const frontendUrl = ensureUrl(process.env.FRONTEND_URL) || 'http://localhost:3010'
-  
+  console.log(`[OAUTH] Callback for ${provider}: code=${code ? 'present' : 'missing'}, state=${state ? 'present' : 'missing'}, error=${error || 'none'}, frontendUrl=${frontendUrl}`)
+
   if (error) {
     return c.redirect(`${frontendUrl}/new?oauth_error=${encodeURIComponent(error)}`)
   }
@@ -132,12 +136,12 @@ oauth.get('/callback/:provider', async (c) => {
     return c.redirect(`${frontendUrl}/new?oauth_error=missing_params`)
   }
   
-  // Validate state
-  const storedState = oauthStates.get(state)
-  if (!storedState || storedState.provider !== provider) {
+  // Validate signed state token (survives container restarts)
+  const stateResult = validateState(state)
+  if (!stateResult.valid || stateResult.provider !== provider) {
+    console.error(`[OAUTH] Invalid state for ${provider}: valid=${stateResult.valid}, stateProvider=${stateResult.provider}`)
     return c.redirect(`${frontendUrl}/new?oauth_error=invalid_state`)
   }
-  oauthStates.delete(state)
   
   const config = OAUTH_CONFIG[provider]
   const credentials = getOAuthCredentials(provider)
@@ -166,13 +170,7 @@ oauth.get('/callback/:provider', async (c) => {
     }
     
     const tokens = await tokenResponse.json() as any
-    
-    // Token ID for reference (used implicitly in token data below)
-    void generateState()
-    
-    // Store tokens temporarily (in production, store in database)
-    // For now, we'll pass them to the frontend via URL (not ideal for production)
-    // In a real implementation, you'd store tokens server-side and return a session ID
+
     const tokenData = encodeURIComponent(JSON.stringify({
       provider,
       accessToken: tokens.access_token,
