@@ -129,18 +129,18 @@ oauth.get('/callback/:provider', async (c) => {
   console.log(`[OAUTH] Callback for ${provider}: code=${code ? 'present' : 'missing'}, state=${state ? 'present' : 'missing'}, error=${error || 'none'}, frontendUrl=${frontendUrl}`)
 
   if (error) {
-    return c.redirect(`${frontendUrl}/new?oauth_error=${encodeURIComponent(error)}`)
+    return c.redirect(`${frontendUrl}/engagements/new?oauth_error=${encodeURIComponent(error)}`)
   }
   
   if (!code || !state) {
-    return c.redirect(`${frontendUrl}/new?oauth_error=missing_params`)
+    return c.redirect(`${frontendUrl}/engagements/new?oauth_error=missing_params`)
   }
   
   // Validate signed state token (survives container restarts)
   const stateResult = validateState(state)
   if (!stateResult.valid || stateResult.provider !== provider) {
     console.error(`[OAUTH] Invalid state for ${provider}: valid=${stateResult.valid}, stateProvider=${stateResult.provider}`)
-    return c.redirect(`${frontendUrl}/new?oauth_error=invalid_state`)
+    return c.redirect(`${frontendUrl}/engagements/new?oauth_error=invalid_state`)
   }
   
   const config = OAUTH_CONFIG[provider]
@@ -166,7 +166,7 @@ oauth.get('/callback/:provider', async (c) => {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error(`[OAUTH] Token exchange failed for ${provider}:`, errorText)
-      return c.redirect(`${frontendUrl}/new?oauth_error=token_exchange_failed`)
+      return c.redirect(`${frontendUrl}/engagements/new?oauth_error=token_exchange_failed`)
     }
     
     const tokens = await tokenResponse.json() as any
@@ -178,10 +178,10 @@ oauth.get('/callback/:provider', async (c) => {
       expiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : null,
     }))
     
-    return c.redirect(`${frontendUrl}/new?oauth_success=${provider}&token_data=${tokenData}`)
+    return c.redirect(`${frontendUrl}/engagements/new?oauth_success=${provider}&token_data=${tokenData}`)
   } catch (err) {
     console.error(`[OAUTH] Error for ${provider}:`, err)
-    return c.redirect(`${frontendUrl}/new?oauth_error=server_error`)
+    return c.redirect(`${frontendUrl}/engagements/new?oauth_error=server_error`)
   }
 })
 
