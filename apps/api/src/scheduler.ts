@@ -15,7 +15,10 @@ export function initScheduler() {
     console.log('[SCHEDULER] Running poll-storage job')
     try {
       const engagements = await prisma.engagement.findMany({
-        where: { status: { in: ['INTAKE_DONE', 'COLLECTING'] } },
+        where: {
+          status: { in: ['INTAKE_DONE', 'COLLECTING'] },
+          storageProvider: { not: 'dropbox' },
+        },
       })
 
       runAllInBackground(engagements.map(engagement => () => pollEngagement(engagement)))

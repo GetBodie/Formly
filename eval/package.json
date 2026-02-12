@@ -1,0 +1,16 @@
+{
+  "name": "formly-eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "tsx run-eval.ts",
+    "eval:quick": "tsx run-eval.ts --quick"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.17.14",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
