@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "docPath": "docs/example-w2.pdf",
+    "expectedType": "W-2",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "employer_name": "Acme Corp",
+      "wages_box1": 75432.00
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["1099-NEC", "1099-INT", "1099-MISC"],
+    "invalidFields": ["payer_name", "nonemployee_compensation"]
+  }
+]
