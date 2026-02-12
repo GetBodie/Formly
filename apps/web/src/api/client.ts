@@ -57,11 +57,9 @@ interface Document {
   processingStatus?: 'pending' | 'downloading' | 'extracting' | 'classifying' | 'classified' | 'error'
   processingStartedAt?: string | null
   // Document review fields
-  approved: boolean | null
   approvedAt: string | null
   override: DocumentOverride | null
   // Archive fields for document replacement flow
-  archived?: boolean
   archivedAt?: string | null
   archivedReason?: string | null
 }

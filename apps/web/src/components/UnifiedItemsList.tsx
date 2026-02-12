@@ -106,7 +106,7 @@ export default function UnifiedItemsList({
     const items: UnifiedItem[] = []
 
     // Filter documents based on archive state
-    const filteredDocs = showArchived ? documents : documents.filter(d => !d.archived)
+    const filteredDocs = showArchived ? documents : documents.filter(d => !d.archivedAt)
 
     // Add documents
     for (const doc of filteredDocs) {
@@ -180,7 +180,7 @@ export default function UnifiedItemsList({
     ? unifiedItems.find(item => item.id === selectedItemId) 
     : null
 
-  const archivedCount = documents.filter(d => d.archived).length
+  const archivedCount = documents.filter(d => d.archivedAt).length
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -328,10 +328,10 @@ function isDocProcessing(doc: Document): boolean {
 }
 
 function getDocumentStatus(doc: Document): ItemStatus {
-  if (doc.archived) return 'pending'
+  if (doc.archivedAt) return 'pending'
   if (isDocProcessing(doc)) return 'processing'
   if (doc.processingStatus === 'error') return 'missing'
-  if (doc.approved) return 'complete'
+  if (doc.approvedAt) return 'complete'
   if (hasErrors(doc.issues)) return 'missing'
   if (hasWarnings(doc.issues)) return 'warning'
   if (doc.issues.length === 0 && doc.documentType !== 'PENDING') return 'complete'
@@ -339,7 +339,7 @@ function getDocumentStatus(doc: Document): ItemStatus {
 }
 
 function getDocumentStatusLabel(doc: Document, status: ItemStatus): string {
-  if (doc.archived) return 'Archived'
+  if (doc.archivedAt) return 'Archived'
   switch (status) {
     case 'processing': return 'Processing'
     case 'missing': return doc.processingStatus === 'error' ? 'Error' : 'Issues'
@@ -376,7 +376,7 @@ interface ItemRowProps {
 }
 
 function ItemRow({ item, isSelected, onSelect }: ItemRowProps) {
-  const isArchived = item.document?.archived
+  const isArchived = item.document?.archivedAt
   
   return (
     <button
@@ -448,7 +448,7 @@ function DocumentDetail({
   const [subjectInput, setSubjectInput] = useState('')
   const [bodyInput, setBodyInput] = useState('')
   
-  const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
+  const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
   const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => ({
     original: issue,
     friendlyMessage: issue,
@@ -464,7 +464,7 @@ function DocumentDetail({
 
       <div className="p-4 space-y-4">
         {/* Archived State */}
-        {doc.archived && (
+        {doc.archivedAt && (
           <div className="p-4 bg-gray-100 border border-gray-300 rounded-lg">
             <div className="flex items-center gap-2 text-gray-700 font-medium">
               <span>📦</span>
@@ -484,7 +484,7 @@ function DocumentDetail({
         )}
 
         {/* Error State */}
-        {!doc.archived && doc.processingStatus === 'error' && (
+        {!doc.archivedAt && doc.processingStatus === 'error' && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center gap-2 text-red-800 font-medium">
               <span>⚠️</span>
@@ -529,8 +529,8 @@ function DocumentDetail({
             </div>
             <div className="p-2 bg-gray-50 rounded">
               <span className="text-gray-500">Status:</span>{' '}
-              <span className={`font-medium ${doc.approved ? 'text-green-600' : 'text-gray-600'}`}>
-                {doc.approved ? 'Approved' : 'Pending'}
+              <span className={`font-medium ${doc.approvedAt ? 'text-green-600' : 'text-gray-600'}`}>
+                {doc.approvedAt ? 'Approved' : 'Pending'}
               </span>
             </div>
           </div>
@@ -566,7 +566,7 @@ function DocumentDetail({
         )}
 
         {/* Actions */}
-        {hasUnresolvedIssues && !doc.archived && (
+        {hasUnresolvedIssues && !doc.archivedAt && (
           <div className="pt-4 border-t space-y-2">
             <button
               onClick={async () => {
@@ -627,7 +627,7 @@ function DocumentDetail({
         )}
 
         {/* Archive button */}
-        {!doc.archived && (
+        {!doc.archivedAt && (
           <div className="pt-4 border-t">
             <button
               onClick={() => onArchive(doc.id, 'Replaced by newer document')}

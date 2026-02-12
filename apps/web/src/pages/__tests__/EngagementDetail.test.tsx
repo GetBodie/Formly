@@ -72,7 +72,6 @@ const mockEngagement = {
       issues: [],
       issueDetails: null,
       classifiedAt: '2025-01-15T00:00:00Z',
-      approved: null,
       approvedAt: null,
       override: null,
     },
@@ -206,7 +205,7 @@ describe('EngagementDetail', () => {
       vi.mocked(getEngagement).mockResolvedValueOnce(engagementWithIssues as any)
       vi.mocked(approveDocument).mockResolvedValueOnce({
         success: true,
-        document: { ...engagementWithIssues.documents[0], approved: true },
+        document: { ...engagementWithIssues.documents[0], approvedAt: new Date().toISOString() },
       } as any)
 
       renderWithRouter('eng_001')
@@ -223,7 +222,7 @@ describe('EngagementDetail', () => {
       })
 
       // Click approve
-      await user.click(screen.getByRole('button', { name: /Approve Anyway/i }))
+      await user.click(screen.getByRole('button', { name: /Approve/i }))
 
       await waitFor(() => {
         expect(approveDocument).toHaveBeenCalledWith('eng_001', 'doc_001')

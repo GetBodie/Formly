@@ -41,7 +41,7 @@ function formatDate(dateStr: string | null): string {
 
 function getDocStatus(doc: Document): 'error' | 'warning' | 'ok' {
   if (doc.processingStatus === 'error') return 'error'
-  if (doc.approved) return 'ok'
+  if (doc.approvedAt) return 'ok'
   if (hasErrors(doc.issues)) return 'error'
   if (hasWarnings(doc.issues)) return 'warning'
   // #32: PENDING documents should show "Needs Review" not "OK"
@@ -304,7 +304,7 @@ export default function EngagementDetail() {
   }
 
   const allDocuments = (engagement.documents as Document[]) || []
-  const visibleDocuments = showArchived ? allDocuments : allDocuments.filter(d => !d.archived)
+  const visibleDocuments = showArchived ? allDocuments : allDocuments.filter(d => !d.archivedAt)
   const reconciliation = engagement.reconciliation as Reconciliation | null
 
   const completionPct = reconciliation?.completionPercentage ?? 0
@@ -446,9 +446,9 @@ export default function EngagementDetail() {
                       }}
                       className={`w-full grid grid-cols-[200px_200px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
                         isSelected ? 'bg-black/5' : 'hover:bg-gray-50'
-                      } ${doc.archived ? 'opacity-50' : ''}`}
+                      } ${doc.archivedAt ? 'opacity-50' : ''}`}
                     >
-                      <div className={`truncate ${doc.archived ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      <div className={`truncate ${doc.archivedAt ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                         {doc.documentType === 'PENDING' ? 'Processing...' : doc.documentType}
                       </div>
                       <div>
@@ -652,7 +652,7 @@ function DocumentPanel({
 }: DocumentPanelProps) {
   const [selectedType, setSelectedType] = useState('')
   const [showAllIssues, setShowAllIssues] = useState(false)
-  const hasUnresolvedIssues = doc.issues.length > 0 && doc.approved !== true
+  const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
 
   const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
     const parsed = parseIssue(issue)
@@ -681,7 +681,7 @@ function DocumentPanel({
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {/* Archived banner */}
-        {doc.archived && (
+        {doc.archivedAt && (
           <div className="mx-4 mt-3 p-3 bg-gray-100 border border-gray-300 rounded-lg">
             <div className="text-sm font-medium text-gray-700">Document Archived</div>
             {doc.archivedReason && (
@@ -698,7 +698,7 @@ function DocumentPanel({
         )}
 
         {/* Error state */}
-        {!doc.archived && doc.processingStatus === 'error' && (
+        {!doc.archivedAt && doc.processingStatus === 'error' && (
           <div className="mx-4 mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
             <div className="text-sm font-medium text-red-800">Processing Failed</div>
             <button
@@ -737,7 +737,7 @@ function DocumentPanel({
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Status</div>
               <div className="text-sm text-gray-700">
-                {doc.approved ? 'Approved' : 'Pending Review'}
+                {doc.approvedAt ? 'Approved' : 'Pending Review'}
               </div>
             </div>
             {doc.override && (
@@ -750,7 +750,7 @@ function DocumentPanel({
         </div>
 
         {/* Reclassify - #31: Allow changing type even after approval */}
-        {!doc.archived && (
+        {!doc.archivedAt && (
           <div className="px-4 mt-3">
             <div className="flex gap-2">
               <select
@@ -838,7 +838,7 @@ function DocumentPanel({
         )}
 
         {/* Archive button */}
-        {!doc.archived && (
+        {!doc.archivedAt && (
           <div className="px-4 mt-3">
             <button
               onClick={() => onArchive(doc.id, 'Replaced by newer document')}
@@ -852,23 +852,23 @@ function DocumentPanel({
       </div>
 
       {/* Action buttons at bottom */}
-      {hasUnresolvedIssues && !doc.archived && (
-        <div className="px-4 py-3 flex gap-3 justify-end">
+      {hasUnresolvedIssues && !doc.archivedAt && (
+        <div className="px-4 py-3 flex gap-3">
           <button
             onClick={() => onApprove(doc.id)}
             disabled={actionInProgress !== null}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-4 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
-            {actionInProgress === 'approve' ? 'Approving...' : 'Approve Anyway'}
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+            {actionInProgress === 'approve' ? 'Approving...' : 'Approve'}
           </button>
           <button
             onClick={() => onOpenEmail(doc.id)}
             disabled={actionInProgress !== null}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 px-4 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors whitespace-nowrap"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
-            Generate Email Follow-Up
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+            Email Follow-Up
           </button>
         </div>
       )}
