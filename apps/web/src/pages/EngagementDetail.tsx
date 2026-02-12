@@ -756,7 +756,7 @@ function DocumentPanel({
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="flex-1 py-1.5 px-3 border rounded-lg text-sm"
+                className="flex-1 py-1.5 px-3 border border-gray-200 rounded-lg text-sm"
               >
                 <option value="">Change type to...</option>
                 {DOCUMENT_TYPES.filter(t => t !== doc.documentType && t !== 'PENDING').map(type => (
@@ -771,7 +771,7 @@ function DocumentPanel({
                   }
                 }}
                 disabled={!selectedType || actionInProgress !== null}
-                className="py-1.5 px-3 border rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
+                className="py-1.5 px-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
               >
                 Apply
               </button>
