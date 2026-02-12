@@ -278,7 +278,7 @@ const StatementSchema = z.object({
 
 const GenericSchema = z.object({
   description: z.string().nullable(),
-  key_values: z.record(z.string(), z.string()).nullable(),
+  key_values: z.array(z.object({ key: z.string(), value: z.string() })).nullable(),
 })
 
 type SchemaConfig = { schema: z.ZodObject<z.ZodRawShape>; name: string }
