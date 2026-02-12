@@ -107,7 +107,6 @@ export default function Admin() {
 
   const deleteAllEngagements = async () => {
     if (!confirm('⚠️ DELETE ALL ENGAGEMENTS? This cannot be undone!')) return
-    if (!confirm('Are you absolutely sure? Type the admin secret again to confirm.')) return
     setLoading(true)
     setError(null)
     try {
@@ -132,9 +131,33 @@ export default function Admin() {
     <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', fontFamily: 'system-ui' }}>
       <h1 style={{ marginBottom: '1.5rem' }}>🔧 Admin</h1>
 
+      {/* Quick Actions - No Auth Required */}
+      <div style={{ padding: '1.5rem', background: '#fef2f2', borderRadius: '8px', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: '#991b1b' }}>⚡ Quick Actions</h2>
+        <button
+          onClick={deleteAllEngagements}
+          disabled={loading}
+          style={{
+            padding: '1rem 2rem',
+            background: '#dc2626',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: loading ? 'wait' : 'pointer',
+            fontSize: '1.1rem',
+            fontWeight: 'bold',
+          }}
+        >
+          🗑️ Clear All Engagements
+        </button>
+      </div>
+
+      <hr style={{ margin: '2rem 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
+
+      {/* Detailed View - Requires Auth */}
       <div style={{ marginBottom: '1.5rem' }}>
         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-          Admin Secret
+          Admin Secret (for detailed view)
         </label>
         <input
           type="password"
