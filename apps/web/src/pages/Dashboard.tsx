@@ -2,24 +2,32 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getEngagements, deleteAllEngagements, type Engagement } from '../api/client'
 
-// Binary status: Complete (100%) or Missing docs
+// Three states: Pending (0%), Collecting (1-99%), Done (100%)
 function StatusBadge({ completion }: { completion: number }) {
-  const isComplete = completion === 100
+  if (completion === 100) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm text-green-600">
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+        Done
+      </span>
+    )
+  }
+  
+  if (completion > 0) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm text-blue-600">
+        <span className="w-2 h-2 rounded-full bg-blue-600" />
+        Collecting
+      </span>
+    )
+  }
+  
   return (
-    <span className={`inline-flex items-center gap-1.5 text-sm ${isComplete ? 'text-green-600' : 'text-gray-500'}`}>
-      {isComplete ? (
-        <>
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-          Complete
-        </>
-      ) : (
-        <>
-          <span className="w-2 h-2 rounded-full bg-gray-400" />
-          Missing docs
-        </>
-      )}
+    <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
+      <span className="w-2 h-2 rounded-full bg-gray-400" />
+      Pending
     </span>
   )
 }
