@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Document, ChecklistItem, Reconciliation, FriendlyIssue } from '../api/client'
-import { hasErrors, hasWarnings } from '../utils/issues'
+import { hasErrors, hasWarnings, parseIssue, getSuggestedAction } from '../utils/issues'
 
 // Unified item types
 type ItemType = 'document' | 'checklist'
@@ -449,12 +449,15 @@ function DocumentDetail({
   const [bodyInput, setBodyInput] = useState('')
   
   const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
-  const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => ({
-    original: issue,
-    friendlyMessage: issue,
-    suggestedAction: 'Review and take appropriate action',
-    severity: 'warning' as const
-  }))
+  const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
+    const parsed = parseIssue(issue)
+    return {
+      original: issue,
+      friendlyMessage: parsed.description,
+      suggestedAction: getSuggestedAction(parsed),
+      severity: parsed.severity,
+    }
+  })
 
   return (
     <>
