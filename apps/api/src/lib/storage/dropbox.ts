@@ -72,8 +72,8 @@ export const dropboxClient: StorageClient = {
     }
 
     // Initial sync - list all files in folder
-    // If we have a shared link URL, use it for accessing the shared folder
-    if (sharedLinkUrl) {
+    // Prefer folderId over sharedLinkUrl (shared links don't work for same-account folders)
+    if (sharedLinkUrl && !folderId) {
       try {
         const response = await dbx.filesListFolder({
           path: '', // Root of the shared folder

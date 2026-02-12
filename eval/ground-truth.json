@@ -1,0 +1,131 @@
+[
+  {
+    "docPath": "docs/w2-acme-2024.pdf",
+    "expectedType": "W-2",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "employer_name": "Acme Corp",
+      "wages_box1": 75432.00,
+      "employee_name": "John Q. Taxpayer"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["1099-NEC", "1099-INT", "1099-DIV", "1098"],
+    "invalidFields": ["payer_name", "nonemployee_compensation", "interest_income", "dividends"]
+  },
+  {
+    "docPath": "docs/w2-techstart-2024.pdf",
+    "expectedType": "W-2",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "employer_name": "TechStart Inc",
+      "wages_box1": 92150.00,
+      "employee_name": "John Q. Taxpayer"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["1099-NEC", "1099-INT", "1099-DIV", "1098"],
+    "invalidFields": ["payer_name", "nonemployee_compensation", "interest_income", "dividends"]
+  },
+  {
+    "docPath": "docs/w2-globalco-2024.pdf",
+    "expectedType": "W-2",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "employer_name": "GlobalCo LLC",
+      "wages_box1": 55000.00,
+      "employee_name": "John Q. Taxpayer"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["1099-NEC", "1099-INT", "1099-DIV", "1098"],
+    "invalidFields": ["payer_name", "nonemployee_compensation", "interest_income", "dividends"]
+  },
+  {
+    "docPath": "docs/1099nec-consult-2024.pdf",
+    "expectedType": "1099-NEC",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "payer_name": "Consulting Partners",
+      "nonemployee_compensation": 45000.00,
+      "recipient_name": "Jane D. Contractor"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["W-2", "1099-INT", "1099-DIV", "1098"],
+    "invalidFields": ["employer_name", "wages_box1", "interest_income", "dividends"]
+  },
+  {
+    "docPath": "docs/1099nec-freelance-2024.pdf",
+    "expectedType": "1099-NEC",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "payer_name": "Freelance Hub",
+      "nonemployee_compensation": 28500.00,
+      "recipient_name": "Jane D. Contractor"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["W-2", "1099-INT", "1099-DIV", "1098"],
+    "invalidFields": ["employer_name", "wages_box1", "interest_income", "dividends"]
+  },
+  {
+    "docPath": "docs/1099int-bigbank-2024.pdf",
+    "expectedType": "1099-INT",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "payer_name": "Big Bank",
+      "interest_income": 1234.00,
+      "recipient_name": "John Q. Taxpayer"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["W-2", "1099-NEC", "1099-DIV", "1098"],
+    "invalidFields": ["employer_name", "wages_box1", "nonemployee_compensation", "dividends"]
+  },
+  {
+    "docPath": "docs/1099div-invest-2024.pdf",
+    "expectedType": "1099-DIV",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "payer_name": "Investment Corp",
+      "total_ordinary_dividends": 5678.00,
+      "qualified_dividends": 4542.40,
+      "recipient_name": "John Q. Taxpayer"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["W-2", "1099-NEC", "1099-INT", "1098"],
+    "invalidFields": ["employer_name", "wages_box1", "nonemployee_compensation", "interest_income"]
+  },
+  {
+    "docPath": "docs/1098-mortgage-2024.pdf",
+    "expectedType": "1098",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "lender_name": "Home Loans Inc",
+      "mortgage_interest_received": 12345.00,
+      "borrower_name": "John Q. Taxpayer"
+    },
+    "shouldHaveIssues": false,
+    "notTypes": ["W-2", "1099-NEC", "1099-INT", "1099-DIV"],
+    "invalidFields": ["employer_name", "wages_box1", "nonemployee_compensation", "interest_income", "dividends"]
+  },
+  {
+    "docPath": "docs/w2-blank-template.pdf",
+    "expectedType": "W-2",
+    "expectedYear": "2024",
+    "expectedFields": {},
+    "shouldHaveIssues": true,
+    "issueReason": "Blank form - no data populated",
+    "notTypes": ["1099-NEC", "1099-INT", "1099-DIV", "1098"],
+    "invalidFields": ["payer_name", "nonemployee_compensation", "interest_income", "dividends"]
+  },
+  {
+    "docPath": "docs/w2-lowquality-2024.pdf",
+    "expectedType": "W-2",
+    "expectedYear": "2024",
+    "expectedFields": {
+      "employer_name": "Faded Corp",
+      "wages_box1": 48750.00,
+      "employee_name": "John Q. Taxpayer"
+    },
+    "shouldHaveIssues": true,
+    "issueReason": "Low quality scan - some fields may be hard to read",
+    "notTypes": ["1099-NEC", "1099-INT", "1099-DIV", "1098"],
+    "invalidFields": ["payer_name", "nonemployee_compensation", "interest_income", "dividends"]
+  }
+]

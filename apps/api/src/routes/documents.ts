@@ -456,7 +456,7 @@ app.post(
         documentType: 'PENDING',
         confidence: 0,
         issues: [],
-        issueDetails: Prisma.DbNull,
+        issueDetails: Prisma.JsonNull,
         classifiedAt: null,
         retryCount: forceRetry ? 0 : doc.retryCount
       }

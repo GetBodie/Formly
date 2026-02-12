@@ -14,6 +14,8 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
+    "eval": "tsx ../../eval/run-eval.ts",
+    "eval:quick": "tsx ../../eval/run-eval.ts --quick",
     "cleanup": "tsx ../../scripts/cleanup-test-data.ts",
     "cleanup:confirm": "tsx ../../scripts/cleanup-test-data.ts --confirm"
   },
