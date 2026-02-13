@@ -675,7 +675,6 @@ function DocumentPanel({
   actionInProgress,
 }: DocumentPanelProps) {
   const [selectedType, setSelectedType] = useState('')
-  const [showAllIssues, setShowAllIssues] = useState(false)
   const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
 
   const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
@@ -803,24 +802,15 @@ function DocumentPanel({
           </div>
         )}
 
-        {/* Issues section */}
+        {/* Issues section - #92: Removed "See All" button, users scroll within container */}
         {friendlyIssues.length > 0 && (
           <div className="mt-8">
-            <div className="flex items-center justify-between px-4 mb-2">
+            <div className="px-4 mb-2">
               <h3 className="text-base font-semibold text-gray-900">Issues</h3>
-              {friendlyIssues.length > 2 && (
-                <button 
-                  className="text-sm font-medium text-blue-500 hover:text-blue-600"
-                  onClick={() => setShowAllIssues(!showAllIssues)}
-                >
-                  {showAllIssues ? 'Show Less' : 'See All'}
-                </button>
-              )}
             </div>
 
             <div>
-              {/* #28: Limit to 2 issues unless "See All" is clicked */}
-              {(showAllIssues ? friendlyIssues : friendlyIssues.slice(0, 2)).map((issue, idx) => {
+              {friendlyIssues.map((issue, idx) => {
                 const isExpanded = expandedIssueIdx === idx
                 return (
                   <div key={idx}>
