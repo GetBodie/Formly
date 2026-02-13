@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getEngagements, deleteAllEngagements, type Engagement } from '../api/client'
 
 // Three states: Pending (0%), Collecting (1-99%), Done (100%)
+// #86: Use filled status pills matching the detail view style
 function StatusBadge({ completion }: { completion: number }) {
   if (completion === 100) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm text-green-600">
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-100 text-green-900 border border-[#e5e5e5]">
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+          <path d="M20 6L9 17l-5-5" />
         </svg>
         Done
       </span>
@@ -17,15 +18,15 @@ function StatusBadge({ completion }: { completion: number }) {
   
   if (completion > 0) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm text-blue-600">
-        <span className="w-2 h-2 rounded-full bg-blue-600" />
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-blue-100 text-[#042f84] border border-[#e5e5e5]">
+        <span className="w-2 h-2 rounded-full bg-[#042f84]" />
         Collecting
       </span>
     )
   }
   
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-800 border border-[#e5e5e5]">
       <span className="w-2 h-2 rounded-full bg-gray-400" />
       Pending
     </span>
@@ -33,8 +34,8 @@ function StatusBadge({ completion }: { completion: number }) {
 }
 
 function ProgressBar({ value }: { value: number }) {
-  // Consistent blue (#2563EB = blue-600) matching the button
-  const fillColor = value === 0 ? 'bg-gray-300' : 'bg-blue-600'
+  // #82: Consistent dark blue (#042f84) matching the brand
+  const fillColor = value === 0 ? 'bg-gray-300' : 'bg-[#042f84]'
   return (
     <div className="flex items-center gap-2">
       <span className="w-8 text-sm text-gray-700">{value}%</span>
@@ -132,7 +133,7 @@ export default function Dashboard() {
         </h1>
         <Link
           to="/engagements/new"
-          className="inline-flex items-center gap-1.5 h-9 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-1.5 h-9 px-4 bg-[#042f84] text-white text-sm font-medium rounded-lg hover:bg-[#03246a] transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -181,7 +182,7 @@ export default function Dashboard() {
                   {engagements.length === 0 ? (
                     <div>
                       <p className="mb-2">No engagements yet</p>
-                      <Link to="/engagements/new" className="text-blue-600 hover:underline text-sm">
+                      <Link to="/engagements/new" className="text-[#042f84] hover:underline text-sm">
                         Create your first engagement
                       </Link>
                     </div>

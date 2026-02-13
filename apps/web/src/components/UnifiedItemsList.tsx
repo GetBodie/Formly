@@ -217,7 +217,7 @@ export default function UnifiedItemsList({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search items..."
-              className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[#042f84] focus:border-[#042f84]"
             />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           </div>
@@ -242,7 +242,7 @@ export default function UnifiedItemsList({
           <button
             onClick={onCheckForDocs}
             disabled={checkingForDocs}
-            className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="text-sm px-3 py-1.5 bg-[#042f84] text-white rounded-lg hover:bg-[#03246a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {checkingForDocs ? 'Checking...' : 'Check for Docs'}
           </button>
@@ -251,7 +251,7 @@ export default function UnifiedItemsList({
         {/* Processing banner */}
         {documents.some(d => isDocProcessing(d)) && (
           <div className="px-4 py-2 bg-blue-50 border-b flex items-center gap-2 text-sm text-blue-800">
-            <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            <div className="animate-spin w-4 h-4 border-2 border-[#042f84] border-t-transparent rounded-full"></div>
             Processing documents...
           </div>
         )}
@@ -383,7 +383,7 @@ function ItemRow({ item, isSelected, onSelect }: ItemRowProps) {
       onClick={onSelect}
       className={`w-full text-left p-4 transition-all ${
         isArchived ? 'bg-gray-50 opacity-60' :
-        isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' :
+        isSelected ? 'bg-blue-50 border-l-4 border-l-[#042f84]' :
         'hover:bg-gray-50'
       }`}
     >
@@ -559,7 +559,7 @@ function DocumentDetail({
                     {!hasUnresolvedIssues && <span className="text-green-600 mr-1">✓</span>}
                     {issue.friendlyMessage}
                   </div>
-                  <div className="mt-1 text-xs text-blue-600 font-medium">
+                  <div className="mt-1 text-xs text-[#042f84] font-medium">
                     → {issue.suggestedAction}
                   </div>
                 </div>
@@ -589,7 +589,7 @@ function DocumentDetail({
                 }
               }}
               disabled={actionInProgress !== null}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="w-full py-2 px-4 bg-[#042f84] text-white rounded-lg hover:bg-[#03246a] disabled:opacity-50"
             >
               📧 Send Follow-up Email
             </button>
@@ -650,7 +650,7 @@ function DocumentDetail({
             <h3 className="text-lg font-semibold mb-4">Send Follow-up Email</h3>
             {loadingEmail ? (
               <div className="py-8 text-center text-gray-500">
-                <div className="animate-spin inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mb-2"></div>
+                <div className="animate-spin inline-block w-6 h-6 border-2 border-[#042f84] border-t-transparent rounded-full mb-2"></div>
                 <p>Generating email...</p>
               </div>
             ) : (
@@ -695,7 +695,7 @@ function DocumentDetail({
                       setShowEmailModal(false)
                     }}
                     disabled={!emailInput || !subjectInput || !bodyInput}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-[#042f84] text-white rounded-lg hover:bg-[#03246a] disabled:opacity-50"
                   >
                     Send Email
                   </button>
