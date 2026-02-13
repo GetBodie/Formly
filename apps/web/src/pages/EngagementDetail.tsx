@@ -370,7 +370,7 @@ export default function EngagementDetail() {
               href={engagement.storageFolderUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium inline-flex items-center gap-2 text-blue-500 hover:text-blue-600"
+              className="text-sm font-medium inline-flex items-center gap-2 text-[#042f84] hover:text-[#03246a]"
             >
               {storageIcon(engagement.storageProvider)}
               {formatStorageProvider(engagement.storageProvider)}
@@ -388,7 +388,7 @@ export default function EngagementDetail() {
               <div className="flex-1">
                 <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${completionPct >= 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+                    className={`h-full rounded-full transition-all ${completionPct >= 100 ? 'bg-green-600' : 'bg-[#042f84]'}`}
                     style={{ width: `${Math.min(completionPct, 100)}%` }}
                   />
                 </div>
@@ -559,7 +559,7 @@ export default function EngagementDetail() {
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {generatingBrief ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                  <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mb-3" />
+                  <div className="animate-spin w-8 h-8 border-2 border-[#042f84] border-t-transparent rounded-full mb-3" />
                   <p>Generating prep brief...</p>
                 </div>
               ) : engagement.prepBrief ? (
@@ -583,7 +583,7 @@ export default function EngagementDetail() {
             <h3 className="text-lg font-semibold mb-4">Send Follow-up Email</h3>
             {loadingEmail ? (
               <div className="py-8 text-center text-gray-500">
-                <div className="animate-spin inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mb-2" />
+                <div className="animate-spin inline-block w-6 h-6 border-2 border-[#042f84] border-t-transparent rounded-full mb-2" />
                 <p>Generating email...</p>
               </div>
             ) : (
@@ -632,7 +632,7 @@ export default function EngagementDetail() {
                       setEmailDocId(null)
                     }}
                     disabled={!emailInput || !subjectInput || !bodyInput}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-[#042f84] text-white rounded-lg hover:bg-[#03246a] disabled:opacity-50"
                   >
                     Send Email
                   </button>
@@ -832,7 +832,7 @@ function DocumentPanel({
                       <svg className="w-4 h-4 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                       <span className="text-sm font-medium text-gray-900 flex-1">{issue.friendlyMessage}</span>
                       <svg
-                        className={`w-6 h-6 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -843,10 +843,6 @@ function DocumentPanel({
                     </button>
                     {isExpanded && (
                       <div className="pl-[36px] pr-4 pb-4 flex flex-col gap-4">
-                        <div className="flex flex-col gap-1">
-                          <div className="text-sm text-gray-500">Issue Description</div>
-                          <div className="text-sm text-black">{issue.friendlyMessage}</div>
-                        </div>
                         <div className="flex flex-col gap-1">
                           <div className="text-sm text-gray-500">Recommended Action</div>
                           <div className="text-sm text-black">{issue.suggestedAction}</div>
