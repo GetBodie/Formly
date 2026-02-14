@@ -75,3 +75,56 @@
   margin: 0.5rem 0;
   color: #4b5563;
 }
+
+/* GFM Table styling */
+.prep-brief table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.prep-brief th,
+.prep-brief td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prep-brief th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
+.prep-brief tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+/* GFM Strikethrough */
+.prep-brief del {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+/* GFM Task lists */
+.prep-brief input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
+/* Links */
+.prep-brief a {
+  color: #042f84;
+  text-decoration: underline;
+}
+
+.prep-brief a:hover {
+  color: #03246a;
+}
+
+/* Horizontal rules */
+.prep-brief hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 1rem 0;
+}

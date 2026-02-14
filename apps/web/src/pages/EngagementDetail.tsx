@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   getEngagement,
   generateBrief,
@@ -564,7 +565,7 @@ export default function EngagementDetail() {
                 </div>
               ) : engagement.prepBrief ? (
                 <div className="prep-brief">
-                  <Markdown>{engagement.prepBrief}</Markdown>
+                  <Markdown remarkPlugins={[remarkGfm]}>{engagement.prepBrief}</Markdown>
                 </div>
               ) : (
                 <div className="text-center py-20 text-gray-500">
