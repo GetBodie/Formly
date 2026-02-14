@@ -564,7 +564,7 @@ export default function EngagementDetail() {
                   <p>Generating prep brief...</p>
                 </div>
               ) : engagement.prepBrief ? (
-                <div className="prep-brief">
+                <div className="prose prose-sm max-w-none">
                   <Markdown remarkPlugins={[remarkGfm]}>{engagement.prepBrief}</Markdown>
                 </div>
               ) : (
