@@ -309,6 +309,14 @@ export default function EngagementDetail() {
   const warningDocs = visibleDocuments.filter(d => getDocStatus(d) === 'warning')
   // #88: Removed timeSaved metric — replaced by missingItems count in tiles
   const missingItems = checklist.filter(item => item.status === 'pending')
+
+  // #84: Auto-select first document so users never see empty "Select a document" state
+  useEffect(() => {
+    if (!selectedDocId && visibleDocuments.length > 0) {
+      setSelectedDocId(visibleDocuments[0].id)
+    }
+  }, [visibleDocuments.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
   return (
