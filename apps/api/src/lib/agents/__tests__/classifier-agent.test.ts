@@ -18,21 +18,23 @@ import {
 // MOCKS
 // ============================================
 
-const { mockParse } = vi.hoisted(() => ({
-  mockParse: vi.fn(),
-}))
-
-vi.mock('openai', () => ({
-  default: vi.fn(() => ({
-    chat: {
+const { mockParse, MockOpenAI } = vi.hoisted(() => {
+  const mockParse = vi.fn()
+  class MockOpenAI {
+    chat = {
       completions: {
         parse: mockParse,
         create: vi.fn().mockResolvedValue({
           choices: [{ message: { content: 'OCR text' } }],
         }),
       },
-    },
-  })),
+    }
+  }
+  return { mockParse, MockOpenAI }
+})
+
+vi.mock('openai', () => ({
+  default: MockOpenAI,
 }))
 
 vi.mock('openai/helpers/zod', () => ({

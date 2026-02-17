@@ -309,6 +309,13 @@ export default function EngagementDetail() {
   const warningDocs = visibleDocuments.filter(d => getDocStatus(d) === 'warning')
   // #88: Removed timeSaved metric — replaced by missingItems count in tiles
   const missingItems = checklist.filter(item => item.status === 'pending')
+  // #84: Auto-select first document so users never see empty "Select a document" state
+  useEffect(() => {
+    if (!selectedDocId && visibleDocuments.length > 0) {
+      setSelectedDocId(visibleDocuments[0].id)
+    }
+  }, [visibleDocuments.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
   return (
@@ -420,7 +427,17 @@ export default function EngagementDetail() {
 
         {/* #88: Removed separate Missing Documents banner — info consolidated into "Missing Items" tile above */}
 
-        {/* Split Panel */}
+        {/* Split Panel — #84: Only show table+detail when documents exist */}
+        {visibleDocuments.length === 0 ? (
+          <div className="border border-[#e5e5e5] rounded-lg p-12 text-center text-gray-500">
+            <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <p className="text-sm font-medium">No documents yet</p>
+            <p className="text-xs text-gray-400 mt-1">Documents will appear here once uploaded</p>
+          </div>
+        ) : (
         <div className="flex gap-[3px]">
           {/* Left: Document Table */}
           <div className="flex-1 border border-[#e5e5e5] rounded-lg overflow-hidden">
@@ -517,17 +534,10 @@ export default function EngagementDetail() {
                 storageFolderUrl={engagement.storageFolderUrl}
                 storageProvider={engagement.storageProvider}
               />
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-gray-400 min-h-[400px]">
-                <svg className="w-12 h-12 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M9 12h6M12 9v6M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm font-medium text-gray-500">Select a document</p>
-                <p className="text-xs text-gray-400 mt-1">Click a row to view details</p>
-              </div>
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* Prep Brief Side Sheet */}
