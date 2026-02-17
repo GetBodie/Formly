@@ -517,7 +517,7 @@ export default function EngagementDetail() {
 
           {/* Right: Document Detail Panel */}
           <div className="w-[457px] flex-shrink-0 bg-white border border-[#e5e5e5] rounded-lg shadow-sm overflow-hidden">
-            {selectedDoc ? (
+            {selectedDoc && (
               <DocumentPanel
                 key={selectedDoc.id}
                 doc={selectedDoc}
