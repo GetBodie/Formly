@@ -20,3 +20,11 @@ grep -n 'SESSION_STORAGE_KEY\|saveFormState\|loadAndClearFormState\|restoredClie
 393:                defaultValue={restoredClientName}
 408:                defaultValue={restoredClientEmail}
 ```
+
+```bash
+cd apps/web && npx tsc --noEmit && echo 'TypeScript compilation: OK'
+```
+
+```output
+TypeScript compilation: OK
+```
