@@ -423,10 +423,7 @@ export default function EngagementDetail() {
         {missingItems.length > 0 && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
+              <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
               <span className="font-medium text-red-800">Missing Documents ({missingItems.length})</span>
             </div>
             <ul className="ml-7 space-y-1">
@@ -479,7 +476,7 @@ export default function EngagementDetail() {
                       <div>
                         {status === 'error' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-100 text-red-600 border border-[#e5e5e5]">
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
                             Needs Action
                           </span>
                         ) : status === 'warning' ? (
@@ -660,6 +657,8 @@ interface DocumentPanelProps {
   onUnarchive: (docId: string) => Promise<void>
   onOpenEmail: (docId: string) => void
   actionInProgress: string | null
+  storageFolderUrl: string
+  storageProvider: string
 }
 
 function DocumentPanel({
@@ -820,7 +819,7 @@ function DocumentPanel({
                       onClick={() => setExpandedIssueIdx(isExpanded ? -1 : idx)}
                       className="w-full flex items-center gap-2 px-4 py-2 text-left"
                     >
-                      <svg className="w-4 h-4 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                      <svg className="w-4 h-4 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
                       <span className="text-sm font-medium text-gray-900 flex-1">{issue.friendlyMessage}</span>
                       <svg
                         className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}

@@ -2,8 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getEngagements, deleteAllEngagements, type Engagement } from '../api/client'
 
-// Three states: Pending (0%), Collecting (1-99%), Done (100%)
-// #86: Use filled status pills matching the detail view style
+// Two states: Pending (0-99%), Ready (100%) — #83: simplified from 3 states
+// Progress bar provides granular detail; status badge is binary
 function StatusBadge({ completion }: { completion: number }) {
   if (completion === 100) {
     return (
@@ -11,16 +11,7 @@ function StatusBadge({ completion }: { completion: number }) {
         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
           <path d="M20 6L9 17l-5-5" />
         </svg>
-        Done
-      </span>
-    )
-  }
-  
-  if (completion > 0) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-blue-100 text-[#042f84] border border-[#e5e5e5]">
-        <span className="w-2 h-2 rounded-full bg-[#042f84]" />
-        Collecting
+        Ready
       </span>
     )
   }
