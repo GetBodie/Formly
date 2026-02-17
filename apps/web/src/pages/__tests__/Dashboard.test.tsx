@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import Dashboard from '../Dashboard'
 
 // Mock the API client
 vi.mock('../../api/client', () => ({
   getEngagements: vi.fn(),
+  deleteAllEngagements: vi.fn(),
 }))
 
-import { getEngagements } from '../../api/client'
+import { getEngagements, deleteAllEngagements } from '../../api/client'
 
 function renderWithRouter(component: React.ReactNode) {
   return render(<BrowserRouter>{component}</BrowserRouter>)
@@ -172,5 +174,89 @@ describe('Dashboard', () => {
     expect(screen.getByText('Client Two')).toBeInTheDocument()
     expect(screen.getByText('Pending')).toBeInTheDocument()
     expect(screen.getByText('Ready')).toBeInTheDocument()
+  })
+
+  it('shows Clear All button when engagements exist', async () => {
+    const mockEngagements = [
+      {
+        id: 'eng_001',
+        clientName: 'Test Client',
+        clientEmail: 'test@example.com',
+        taxYear: 2025,
+        status: 'PENDING',
+        storageProvider: 'dropbox',
+        storageFolderUrl: 'https://dropbox.com/sh/test',
+        typeformFormId: 'form_123',
+        checklist: null,
+        documents: null,
+        reconciliation: null,
+        prepBrief: null,
+        createdAt: '2025-01-01',
+        updatedAt: '2025-01-01',
+      },
+    ]
+    vi.mocked(getEngagements).mockResolvedValueOnce(mockEngagements)
+
+    renderWithRouter(<Dashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Client')).toBeInTheDocument()
+    })
+
+    expect(screen.getByTestId('clear-dashboard-btn')).toBeInTheDocument()
+    expect(screen.getByText('Clear All')).toBeInTheDocument()
+  })
+
+  it('does not show Clear All button when no engagements', async () => {
+    vi.mocked(getEngagements).mockResolvedValueOnce([])
+
+    renderWithRouter(<Dashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No engagements yet')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByTestId('clear-dashboard-btn')).not.toBeInTheDocument()
+  })
+
+  it('clears all engagements when Clear All is confirmed', async () => {
+    const mockEngagements = [
+      {
+        id: 'eng_001',
+        clientName: 'Test Client',
+        clientEmail: 'test@example.com',
+        taxYear: 2025,
+        status: 'PENDING',
+        storageProvider: 'dropbox',
+        storageFolderUrl: 'https://dropbox.com/sh/test',
+        typeformFormId: 'form_123',
+        checklist: null,
+        documents: null,
+        reconciliation: null,
+        prepBrief: null,
+        createdAt: '2025-01-01',
+        updatedAt: '2025-01-01',
+      },
+    ]
+    vi.mocked(getEngagements).mockResolvedValueOnce(mockEngagements)
+    vi.mocked(deleteAllEngagements).mockResolvedValueOnce({ message: 'ok', count: 1 })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.spyOn(window, 'alert').mockImplementation(() => {})
+
+    renderWithRouter(<Dashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Client')).toBeInTheDocument()
+    })
+
+    await userEvent.click(screen.getByTestId('clear-dashboard-btn'))
+
+    await waitFor(() => {
+      expect(deleteAllEngagements).toHaveBeenCalled()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('No engagements yet')).toBeInTheDocument()
+    })
   })
 })
