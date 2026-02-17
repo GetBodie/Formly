@@ -104,6 +104,30 @@ export default function NewEngagement() {
 
   const currentConfig = selectedProvider ? PROVIDER_CONFIG[selectedProvider] : null
 
+  // Reset isConnecting when user returns via back/forward cache (bfcache)
+  // This handles: click "Connect" → redirect to OAuth → cancel/close → back button
+  // The bfcache restores the page with isConnecting=true, leaving the button stuck
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setIsConnecting(false)
+      }
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [])
+
+  // Also reset on visibility change (covers tab switching / mobile app-switch scenarios)
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible' && isConnecting) {
+        setIsConnecting(false)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [isConnecting])
+
   // Handle OAuth callback on mount
   useEffect(() => {
     const oauthSuccess = searchParams.get('oauth_success')
