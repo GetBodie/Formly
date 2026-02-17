@@ -40,7 +40,7 @@ export const emailTemplates = {
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #1f2937;">Hello ${engagement.clientName},</h1>
         <p>We're ready to collect your tax documents for ${engagement.taxYear}.</p>
-        <p><strong>Step 1:</strong> Complete this intake form to help us understand what documents we'll need:</p>
+        <p>Complete this intake form to help us understand what documents we'll need:</p>
         <p style="margin: 24px 0;">
           <a href="https://form.typeform.com/to/${engagement.typeformFormId}?engagement_id=${engagement.id}"
              style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
