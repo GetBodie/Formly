@@ -170,15 +170,14 @@ export default function Dashboard() {
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 280 }}>Name</th>
               <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 280 }}>Email</th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 140 }}>Status</th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 160 }}>Progress</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 220 }}>Status</th>
               <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 100 }}>Tax Year</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-gray-500">
+                <td colSpan={4} className="text-center py-12 text-gray-500">
                   {engagements.length === 0 ? (
                     <div>
                       <p className="mb-2">No engagements yet</p>
@@ -207,10 +206,10 @@ export default function Dashboard() {
                     <td className="px-4 text-sm font-medium text-gray-900 whitespace-nowrap">{engagement.clientName}</td>
                     <td className="px-4 text-sm text-gray-600 whitespace-nowrap">{engagement.clientEmail}</td>
                     <td className="px-4 whitespace-nowrap">
-                      <StatusBadge completion={completion} />
-                    </td>
-                    <td className="px-4 whitespace-nowrap">
-                      <ProgressBar value={completion} />
+                      <div className="flex items-center gap-3">
+                        <StatusBadge completion={completion} />
+                        <ProgressBar value={completion} />
+                      </div>
                     </td>
                     <td className="px-4 text-sm text-gray-700 whitespace-nowrap">{engagement.taxYear}</td>
                   </tr>

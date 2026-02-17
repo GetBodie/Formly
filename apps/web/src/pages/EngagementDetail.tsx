@@ -27,6 +27,14 @@ const statusColors: Record<string, string> = {
   READY: 'bg-green-100 text-green-800',
 }
 
+// #88: Human-readable status labels instead of internal codes
+const statusLabels: Record<string, string> = {
+  PENDING: 'Not Started',
+  INTAKE_DONE: 'Awaiting Documents',
+  COLLECTING: 'Collecting Documents',
+  READY: 'Ready for Review',
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
@@ -312,7 +320,6 @@ export default function EngagementDetail() {
   const completionPct = reconciliation?.completionPercentage ?? 0
   const errorDocs = visibleDocuments.filter(d => getDocStatus(d) === 'error')
   const warningDocs = visibleDocuments.filter(d => getDocStatus(d) === 'warning')
-  const timeSaved = Math.round(visibleDocuments.length * 0.75)
   const missingItems = checklist.filter(item => item.status === 'pending')
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
@@ -362,7 +369,7 @@ export default function EngagementDetail() {
           <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-500">Status</div>
             <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium ${statusColors[engagement.status]}`}>
-              {engagement.status.replace(/_/g, ' ')}
+              {statusLabels[engagement.status] || engagement.status.replace(/_/g, ' ')}
             </span>
           </div>
           <div className="flex flex-col gap-2">
@@ -412,44 +419,32 @@ export default function EngagementDetail() {
             </div>
           </div>
 
-          {/* Time Saved */}
+          {/* #88: Replaced "Time Saved" with "Missing Documents" count */}
           <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between items-start">
-            <div className="text-sm text-gray-500">Time Saved</div>
-            <div className="text-2xl font-semibold tracking-tight">{timeSaved}hrs</div>
+            <div className="text-sm text-gray-500">Missing Documents</div>
+            <div className="flex items-center gap-2">
+              <span className={`text-2xl font-semibold tracking-tight ${missingItems.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {missingItems.length}
+              </span>
+              <span className={`text-sm ${missingItems.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {missingItems.length === 0 ? 'All received' : 'outstanding'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Missing Documents Alert */}
-        {missingItems.length > 0 && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-              <span className="font-medium text-red-800">Missing Documents ({missingItems.length})</span>
-            </div>
-            <ul className="ml-7 space-y-1">
-              {missingItems.map(item => (
-                <li key={item.id} className="text-sm text-red-700 flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${item.priority === 'high' ? 'bg-red-500' : item.priority === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'}`} />
-                  {item.title}
-                  {item.priority === 'high' && <span className="text-xs text-red-500 font-medium">(Required)</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* #88: Missing Documents banner removed — consolidated into tiles + table */}
 
         {/* Split Panel */}
         <div className="flex gap-[3px]">
           {/* Left: Document Table */}
           <div className="flex-1 border border-[#e5e5e5] rounded-lg overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-[200px_200px_1fr] text-sm font-medium text-gray-900 px-2 py-2 bg-gray-50">
+            <div className="grid grid-cols-[180px_140px_60px_1fr] text-sm font-medium text-gray-900 px-2 py-2 bg-gray-50">
               <div>Document</div>
-              <div>Status</div>
-              <div>Uploaded at</div>
+              <div>Receipt Status</div>
+              <div>Issues</div>
+              <div>Uploaded</div>
             </div>
 
             {/* Table Rows */}
@@ -469,7 +464,7 @@ export default function EngagementDetail() {
                         setSelectedDocId(doc.id)
                         setExpandedIssueIdx(0)
                       }}
-                      className={`w-full grid grid-cols-[200px_200px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
+                      className={`w-full grid grid-cols-[180px_140px_60px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
                         isSelected ? 'bg-black/5' : 'hover:bg-gray-50'
                       } ${doc.archivedAt ? 'opacity-50' : ''}`}
                     >
@@ -477,21 +472,39 @@ export default function EngagementDetail() {
                         {doc.documentType === 'PENDING' ? 'Processing...' : doc.documentType}
                       </div>
                       <div>
-                        {status === 'error' ? (
+                        {/* #88: Receipt-oriented status */}
+                        {doc.approvedAt ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-100 text-green-900 border border-[#e5e5e5]">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5" /></svg>
+                            Received
+                          </span>
+                        ) : status === 'error' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-100 text-red-600 border border-[#e5e5e5]">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                            Needs Action
+                            Action Needed
                           </span>
                         ) : status === 'warning' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-yellow-100 text-yellow-700 border border-[#e5e5e5]">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                            Needs Review
+                            Pending Review
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-100 text-green-900 border border-[#e5e5e5]">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5" /></svg>
-                            OK
+                            Received
                           </span>
+                        )}
+                      </div>
+                      {/* #88: Issues count column */}
+                      <div className="text-center">
+                        {doc.issues.length > 0 ? (
+                          <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium ${
+                            status === 'error' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {doc.issues.length}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
                         )}
                       </div>
                       <div className="text-gray-900 text-sm">{formatDate(doc.classifiedAt)}</div>
