@@ -44,6 +44,8 @@ interface UnifiedItemsListProps {
   actionInProgress: string | null
   engagementId: string
   clientEmail: string
+  storageFolderUrl: string
+  storageProvider: string
 }
 
 // Status pill styling
@@ -86,6 +88,8 @@ export default function UnifiedItemsList({
   actionInProgress,
   engagementId,
   clientEmail,
+  storageFolderUrl,
+  storageProvider,
 }: UnifiedItemsListProps) {
   const [activeFilter, setActiveFilter] = useState<FilterOption>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -299,6 +303,8 @@ export default function UnifiedItemsList({
               onArchive={onArchive}
               onUnarchive={onUnarchive}
               actionInProgress={actionInProgress}
+              storageFolderUrl={storageFolderUrl}
+              storageProvider={storageProvider}
             />
           ) : selectedItem.type === 'checklist' && selectedItem.checklistItem ? (
             <ChecklistDetail
@@ -424,10 +430,21 @@ interface DocumentDetailProps {
   onArchive: (docId: string, reason?: string) => Promise<void>
   onUnarchive: (docId: string) => Promise<void>
   actionInProgress: string | null
+  storageFolderUrl: string
+  storageProvider: string
 }
 
 // Import API functions for email preview
 import { getEmailPreview, DOCUMENT_TYPES } from '../api/client'
+
+function formatStorageProviderName(provider: string): string {
+  const map: Record<string, string> = {
+    'sharepoint': 'SharePoint',
+    'googledrive': 'Google Drive',
+    'dropbox': 'Dropbox'
+  }
+  return map[provider?.toLowerCase()] || provider
+}
 
 function DocumentDetail({
   doc,
@@ -440,6 +457,8 @@ function DocumentDetail({
   onArchive,
   onUnarchive,
   actionInProgress,
+  storageFolderUrl,
+  storageProvider,
 }: DocumentDetailProps) {
   const [selectedType, setSelectedType] = useState('')
   const [showEmailModal, setShowEmailModal] = useState(false)
@@ -501,6 +520,19 @@ function DocumentDetail({
               {actionInProgress === 'retry' ? 'Retrying...' : '🔄 Retry Processing'}
             </button>
           </div>
+        )}
+
+        {/* View Document button - #90: Make doc preview discoverable */}
+        {storageFolderUrl && (
+          <a
+            href={storageFolderUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 w-full py-2 px-4 bg-[#042f84] text-white rounded-lg hover:bg-[#03246a] transition-colors font-medium"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+            View in {formatStorageProviderName(storageProvider)}
+          </a>
         )}
 
         {/* File Info */}

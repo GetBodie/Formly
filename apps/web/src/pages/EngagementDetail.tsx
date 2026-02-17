@@ -514,6 +514,8 @@ export default function EngagementDetail() {
                 onUnarchive={handleUnarchiveDocument}
                 onOpenEmail={openEmailModal}
                 actionInProgress={actionInProgress}
+                storageFolderUrl={engagement.storageFolderUrl}
+                storageProvider={engagement.storageProvider}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center p-8 text-gray-400 min-h-[400px]">
@@ -665,6 +667,8 @@ function DocumentPanel({
   onUnarchive,
   onOpenEmail,
   actionInProgress,
+  storageFolderUrl,
+  storageProvider,
 }: DocumentPanelProps) {
   const [selectedType, setSelectedType] = useState('')
   const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
@@ -723,6 +727,21 @@ function DocumentPanel({
             >
               {actionInProgress === 'retry' ? 'Retrying...' : 'Retry Processing'}
             </button>
+          </div>
+        )}
+
+        {/* View Document button - #90: Make doc preview discoverable */}
+        {storageFolderUrl && (
+          <div className="px-4 mt-3">
+            <a
+              href={storageFolderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#042f84] text-white text-sm font-medium rounded-lg hover:bg-[#03246a] transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+              View in {formatStorageProvider(storageProvider || '')}
+            </a>
           </div>
         )}
 
