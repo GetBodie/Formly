@@ -24,6 +24,8 @@ const formDefinition = {
     is_public: true,
     progress_bar: 'proportion',
     show_progress_bar: true,
+    hide_navigation: false,
+    show_key_hint_on_choices: true,
     meta: {
       allow_indexing: false
     }
