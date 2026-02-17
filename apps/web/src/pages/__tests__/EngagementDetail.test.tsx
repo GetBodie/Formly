@@ -114,7 +114,7 @@ describe('EngagementDetail', () => {
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
     expect(screen.getByText('Tax Year')).toBeInTheDocument()
     expect(screen.getByText('2025')).toBeInTheDocument()
-    expect(screen.getByText('COLLECTING')).toBeInTheDocument()
+    // #88: Status badge removed — progress % is the primary indicator
     expect(screen.getByText('50%')).toBeInTheDocument()
   })
 

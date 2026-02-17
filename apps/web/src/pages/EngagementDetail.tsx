@@ -20,12 +20,7 @@ import {
 } from '../api/client'
 import { parseIssue, getSuggestedAction, hasErrors, hasWarnings } from '../utils/issues'
 
-const statusColors: Record<string, string> = {
-  PENDING: 'bg-gray-100 text-gray-800',
-  INTAKE_DONE: 'bg-blue-100 text-blue-800',
-  COLLECTING: 'bg-yellow-100 text-yellow-800',
-  READY: 'bg-green-100 text-green-800',
-}
+// #88: Removed statusColors — engagement status badge removed (progress % is sufficient)
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
@@ -312,7 +307,7 @@ export default function EngagementDetail() {
   const completionPct = reconciliation?.completionPercentage ?? 0
   const errorDocs = visibleDocuments.filter(d => getDocStatus(d) === 'error')
   const warningDocs = visibleDocuments.filter(d => getDocStatus(d) === 'warning')
-  const timeSaved = Math.round(visibleDocuments.length * 0.75)
+  // #88: Removed timeSaved metric — replaced by missingItems count in tiles
   const missingItems = checklist.filter(item => item.status === 'pending')
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
@@ -350,6 +345,7 @@ export default function EngagementDetail() {
             )}
           </div>
         </div>
+        {/* #88: Removed engagement status badge — progress % already conveys this */}
         <div className="flex items-center gap-[60px] mb-6">
           <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-500">Email</div>
@@ -358,12 +354,6 @@ export default function EngagementDetail() {
           <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-500">Tax Year</div>
             <div className="text-base font-medium">{engagement.taxYear}</div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <div className="text-sm text-gray-500">Status</div>
-            <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium ${statusColors[engagement.status]}`}>
-              {engagement.status.replace(/_/g, ' ')}
-            </span>
           </div>
           <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-500">Storage</div>
@@ -412,40 +402,34 @@ export default function EngagementDetail() {
             </div>
           </div>
 
-          {/* Time Saved */}
+          {/* #88: Replaced "Time Saved" with "Missing Items" — consolidates the red banner into the tile */}
           <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between items-start">
-            <div className="text-sm text-gray-500">Time Saved</div>
-            <div className="text-2xl font-semibold tracking-tight">{timeSaved}hrs</div>
+            <div className="text-sm text-gray-500">Missing Items</div>
+            <div className="flex items-center gap-2">
+              <span className={`text-2xl font-semibold tracking-tight ${missingItems.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {missingItems.length}
+              </span>
+              {missingItems.length > 0 && (
+                <span className="text-xs text-red-600 font-medium">
+                  {missingItems.filter(i => i.priority === 'high').length} required
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Missing Documents Alert */}
-        {missingItems.length > 0 && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
-              <span className="font-medium text-red-800">Missing Documents ({missingItems.length})</span>
-            </div>
-            <ul className="ml-7 space-y-1">
-              {missingItems.map(item => (
-                <li key={item.id} className="text-sm text-red-700 flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${item.priority === 'high' ? 'bg-red-500' : item.priority === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'}`} />
-                  {item.title}
-                  {item.priority === 'high' && <span className="text-xs text-red-500 font-medium">(Required)</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* #88: Removed separate Missing Documents banner — info consolidated into "Missing Items" tile above */}
 
         {/* Split Panel */}
         <div className="flex gap-[3px]">
           {/* Left: Document Table */}
           <div className="flex-1 border border-[#e5e5e5] rounded-lg overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-[200px_200px_1fr] text-sm font-medium text-gray-900 px-2 py-2 bg-gray-50">
+            {/* #88: Added Issues column for at-a-glance issue count */}
+            <div className="grid grid-cols-[200px_150px_60px_1fr] text-sm font-medium text-gray-900 px-2 py-2 bg-gray-50">
               <div>Document</div>
               <div>Status</div>
+              <div>Issues</div>
               <div>Uploaded at</div>
             </div>
 
@@ -466,7 +450,7 @@ export default function EngagementDetail() {
                         setSelectedDocId(doc.id)
                         setExpandedIssueIdx(0)
                       }}
-                      className={`w-full grid grid-cols-[200px_200px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
+                      className={`w-full grid grid-cols-[200px_150px_60px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
                         isSelected ? 'bg-black/5' : 'hover:bg-gray-50'
                       } ${doc.archivedAt ? 'opacity-50' : ''}`}
                     >
@@ -489,6 +473,14 @@ export default function EngagementDetail() {
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5" /></svg>
                             OK
                           </span>
+                        )}
+                      </div>
+                      {/* #88: Issues count column */}
+                      <div className="text-sm">
+                        {doc.issues.length > 0 ? (
+                          <span className="text-red-600 font-medium">{doc.issues.length}</span>
+                        ) : (
+                          <span className="text-gray-400">0</span>
                         )}
                       </div>
                       <div className="text-gray-900 text-sm">{formatDate(doc.classifiedAt)}</div>
@@ -657,8 +649,8 @@ interface DocumentPanelProps {
   onUnarchive: (docId: string) => Promise<void>
   onOpenEmail: (docId: string) => void
   actionInProgress: string | null
-  storageFolderUrl: string
-  storageProvider: string
+  storageFolderUrl?: string
+  storageProvider?: string
 }
 
 function DocumentPanel({
