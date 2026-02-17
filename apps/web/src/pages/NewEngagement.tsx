@@ -64,6 +64,33 @@ const PROVIDER_CONFIG: Record<StorageProvider, {
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3009'
 const API_URL = rawApiUrl.startsWith('http') ? rawApiUrl : `https://${rawApiUrl}`
 
+const SESSION_STORAGE_KEY = 'formly_new_engagement_form_state'
+
+interface SavedFormState {
+  clientName: string
+  clientEmail: string
+  selectedProvider: StorageProvider | null
+  storageFolderUrl: string
+  inputMode: 'url' | 'oauth'
+}
+
+function saveFormState(state: SavedFormState) {
+  try {
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state))
+  } catch { /* ignore storage errors */ }
+}
+
+function loadAndClearFormState(): SavedFormState | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
+    if (raw) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY)
+      return JSON.parse(raw) as SavedFormState
+    }
+  } catch { /* ignore */ }
+  return null
+}
+
 export default function NewEngagement() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -72,6 +99,8 @@ export default function NewEngagement() {
   const [selectedProvider, setSelectedProvider] = useState<StorageProvider | null>(null)
   const [storageFolderUrl, setStorageFolderUrl] = useState('')
   const [inputMode, setInputMode] = useState<'url' | 'oauth'>('url')
+  const [restoredClientName, setRestoredClientName] = useState('')
+  const [restoredClientEmail, setRestoredClientEmail] = useState('')
   
   // OAuth state
   const [oauthTokens, setOauthTokens] = useState<OAuthTokenData | null>(null)
@@ -128,11 +157,24 @@ export default function NewEngagement() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [isConnecting])
 
-  // Handle OAuth callback on mount
+  // Handle OAuth callback on mount — restore saved form state
   useEffect(() => {
     const oauthSuccess = searchParams.get('oauth_success')
     const oauthError = searchParams.get('oauth_error')
     const tokenData = searchParams.get('token_data')
+
+    // Restore saved form state (from before OAuth redirect)
+    const saved = loadAndClearFormState()
+    if (saved) {
+      if (saved.clientName) setRestoredClientName(saved.clientName)
+      if (saved.clientEmail) setRestoredClientEmail(saved.clientEmail)
+      if (saved.storageFolderUrl) setStorageFolderUrl(saved.storageFolderUrl)
+      // Provider & inputMode restored by OAuth success below, or fallback
+      if (!oauthSuccess && saved.selectedProvider) {
+        setSelectedProvider(saved.selectedProvider)
+        setInputMode(saved.inputMode)
+      }
+    }
     
     if (oauthError) {
       setError(`OAuth error: ${oauthError.replace(/_/g, ' ')}`)
@@ -185,6 +227,17 @@ export default function NewEngagement() {
     setError(null)
     
     try {
+      // Save form state before redirecting away for OAuth
+      const form = document.querySelector('form')
+      const formData = form ? new FormData(form) : null
+      saveFormState({
+        clientName: (formData?.get('clientName') as string) || '',
+        clientEmail: (formData?.get('clientEmail') as string) || '',
+        selectedProvider: provider,
+        storageFolderUrl,
+        inputMode: 'oauth',
+      })
+
       const response = await fetch(`${API_URL}/api/oauth/auth/${provider}`)
       const data = await response.json()
       
@@ -337,6 +390,7 @@ export default function NewEngagement() {
                 id="clientName"
                 name="clientName"
                 required
+                defaultValue={restoredClientName}
                 className="w-full h-9 px-3 text-sm border border-gray-300 rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors"
                 placeholder="John Smith"
               />
@@ -351,6 +405,7 @@ export default function NewEngagement() {
                 id="clientEmail"
                 name="clientEmail"
                 required
+                defaultValue={restoredClientEmail}
                 className="w-full h-9 px-3 text-sm border border-gray-300 rounded-lg outline-none focus:border-[#042f84] focus:ring-1 focus:ring-[#042f84] transition-colors"
                 placeholder="john@example.com"
               />
