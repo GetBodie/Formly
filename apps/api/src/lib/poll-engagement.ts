@@ -40,6 +40,37 @@ export async function pollEngagement(engagement: {
       })).map(d => d.storageItemId)
     )
 
+    // Process deleted files - archive matching documents
+    const deletedFiles = files.filter(file => file.deleted)
+    if (deletedFiles.length > 0) {
+      const deletedStorageIds = deletedFiles.map(f => f.id)
+      const deletedFileNames = deletedFiles.map(f => f.name)
+
+      // Match by storageItemId or fileName for documents that aren't already archived
+      const docsToArchive = await prisma.document.findMany({
+        where: {
+          engagementId: engagement.id,
+          archivedAt: null,
+          OR: [
+            { storageItemId: { in: deletedStorageIds } },
+            { fileName: { in: deletedFileNames } },
+          ],
+        },
+        select: { id: true, fileName: true },
+      })
+
+      if (docsToArchive.length > 0) {
+        await prisma.document.updateMany({
+          where: { id: { in: docsToArchive.map(d => d.id) } },
+          data: {
+            archivedAt: new Date(),
+            archivedReason: 'File deleted from storage provider',
+          },
+        })
+        console.log(`[POLL] ${engagement.id}: Archived ${docsToArchive.length} deleted documents: ${docsToArchive.map(d => d.fileName).join(', ')}`)
+      }
+    }
+
     // Process new files
     const newFiles = files.filter(file => !file.deleted && !existingIds.has(file.id))
 
