@@ -19,6 +19,7 @@ import {
   type Check,
 } from '../api/client'
 import { parseIssue, getSuggestedAction, hasErrors, hasWarnings } from '../utils/issues'
+import { getFriendlyDocType } from '../utils/documentTypes'
 
 // #88: Removed statusColors — engagement status badge removed (progress % is sufficient)
 
@@ -99,6 +100,9 @@ export default function EngagementDetail() {
   const [showPrepBrief, setShowPrepBrief] = useState(false)
   const [selectedDocId, setSelectedDocId] = useState<string | null>(searchParams.get('doc'))
   const [expandedIssueIdx, setExpandedIssueIdx] = useState<number>(0)
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   // Email modal state
   const [showEmailModal, setShowEmailModal] = useState(false)
@@ -208,7 +212,8 @@ export default function EngagementDetail() {
     try {
       const result = await sendDocumentFollowUp(id, docId, options)
       setError(null)
-      alert(result.message || 'Follow-up email sent successfully')
+      setToast({ message: result.message || 'Follow-up email sent successfully', type: 'success' })
+      setTimeout(() => setToast(null), 4000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send email')
     } finally {
@@ -327,6 +332,21 @@ export default function EngagementDetail() {
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm flex items-center justify-between">
             <span>{error}</span>
             <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800 ml-4" aria-label="Dismiss error">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+        )}
+
+        {/* Toast notification */}
+        {toast && (
+          <div className={`mb-4 p-3 rounded-lg text-sm flex items-center justify-between animate-[fadeIn_200ms_ease-out] ${
+            toast.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            <span className="flex items-center gap-2">
+              {toast.type === 'success' && <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>}
+              {toast.message}
+            </span>
+            <button onClick={() => setToast(null)} className="ml-4 hover:opacity-70" aria-label="Dismiss">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
             </button>
           </div>
@@ -468,12 +488,14 @@ export default function EngagementDetail() {
                         setSelectedDocId(doc.id)
                         setExpandedIssueIdx(0)
                       }}
-                      className={`w-full grid grid-cols-[200px_150px_60px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
-                        isSelected ? 'bg-black/5' : 'hover:bg-gray-50'
+                      className={`w-full grid grid-cols-[200px_150px_60px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-all duration-150 text-left ${
+                        isSelected
+                          ? 'bg-[#042f84]/[0.04] border-l-[3px] border-l-[#042f84] pl-[5px]'
+                          : 'hover:bg-gray-50/80 active:bg-gray-100 border-l-[3px] border-l-transparent pl-[5px]'
                       } ${doc.archivedAt ? 'opacity-50' : ''}`}
                     >
                       <div className={`truncate ${doc.archivedAt ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                        {doc.documentType === 'PENDING' ? 'Processing...' : doc.documentType}
+                        {getFriendlyDocType(doc.documentType)}
                       </div>
                       <div>
                         {status === 'error' ? (
@@ -519,8 +541,8 @@ export default function EngagementDetail() {
           {/* Right: Document Detail Panel */}
           <div className="w-[457px] flex-shrink-0 bg-white border border-[#e5e5e5] rounded-lg shadow-sm overflow-hidden">
             {selectedDoc && (
+              <div key={selectedDoc.id} className="animate-[fadeIn_200ms_ease-out]">
               <DocumentPanel
-                key={selectedDoc.id}
                 doc={selectedDoc}
                 expandedIssueIdx={expandedIssueIdx}
                 setExpandedIssueIdx={setExpandedIssueIdx}
@@ -535,6 +557,7 @@ export default function EngagementDetail() {
                 storageFolderUrl={engagement.storageFolderUrl}
                 storageProvider={engagement.storageProvider}
               />
+              </div>
             )}
           </div>
         </div>
@@ -771,7 +794,7 @@ function DocumentPanel({
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">System Detected</div>
-              <div className="text-sm text-black">{doc.documentType === 'PENDING' ? 'Processing...' : doc.documentType}</div>
+              <div className="text-sm text-black">{getFriendlyDocType(doc.documentType)}</div>
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-sm text-gray-500">Confidence</div>
@@ -810,7 +833,7 @@ function DocumentPanel({
               >
                 <option value="">Change type to...</option>
                 {DOCUMENT_TYPES.filter(t => t !== doc.documentType && t !== 'PENDING').map(type => (
-                  <option key={type} value={type}>{type}</option>
+                  <option key={type} value={type}>{getFriendlyDocType(type)}</option>
                 ))}
               </select>
               <button
