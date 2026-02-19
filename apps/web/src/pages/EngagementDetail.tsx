@@ -141,7 +141,7 @@ export default function EngagementDetail() {
       // Ignore URL update errors during page refresh/navigation
       console.warn('URL sync skipped:', e)
     }
-  }, [selectedDocId, setSearchParams])
+  }, [selectedDocId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // #84: Auto-select first document so users never see empty "Select a document" state
   // Must be before early returns to satisfy Rules of Hooks
