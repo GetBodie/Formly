@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Document, ChecklistItem, Reconciliation, Check } from '../api/client'
 import { hasErrors, hasWarnings, parseIssue, getSuggestedAction } from '../utils/issues'
+import { getFriendlyDocType } from '../utils/documentTypes'
 
 // Unified item types
 type ItemType = 'document' | 'checklist'
@@ -119,7 +120,7 @@ export default function UnifiedItemsList({
         id: `doc-${doc.id}`,
         type: 'document',
         title: doc.fileName,
-        subtitle: doc.documentType,
+        subtitle: getFriendlyDocType(doc.documentType),
         status,
         statusLabel: getDocumentStatusLabel(doc, status),
         document: doc,
@@ -554,7 +555,7 @@ function DocumentDetail({
           <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
             <div className="p-2 bg-gray-50 rounded">
               <span className="text-gray-500">Type:</span>{' '}
-              <span className="font-medium">{doc.documentType}</span>
+              <span className="font-medium">{getFriendlyDocType(doc.documentType)}</span>
             </div>
             <div className="p-2 bg-gray-50 rounded">
               <span className="text-gray-500">Year:</span>{' '}
@@ -644,7 +645,7 @@ function DocumentDetail({
               >
                 <option value="">Change type to...</option>
                 {DOCUMENT_TYPES.filter(t => t !== doc.documentType && t !== 'PENDING').map(type => (
-                  <option key={type} value={type}>{type}</option>
+                  <option key={type} value={type}>{getFriendlyDocType(type)}</option>
                 ))}
               </select>
               <button
