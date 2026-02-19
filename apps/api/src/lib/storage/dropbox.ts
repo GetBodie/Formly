@@ -42,7 +42,10 @@ export const dropboxClient: StorageClient = {
         const deletedFiles: StorageFile[] = response.result.entries
           .filter(entry => entry['.tag'] === 'deleted')
           .map(entry => ({
-            id: entry.name, // Deleted entries don't have ID
+            // For shared folders, use path_display to match stored IDs; otherwise use path_lower
+            id: sharedLinkUrl
+              ? ((entry as { path_display?: string }).path_display || `/${entry.name}`)
+              : ((entry as { path_lower?: string }).path_lower || entry.name),
             name: entry.name,
             mimeType: 'application/octet-stream',
             deleted: true,

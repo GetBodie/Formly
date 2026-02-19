@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   getEngagement,
   generateBrief,
@@ -19,12 +20,7 @@ import {
 } from '../api/client'
 import { parseIssue, getSuggestedAction, hasErrors, hasWarnings } from '../utils/issues'
 
-const statusColors: Record<string, string> = {
-  PENDING: 'bg-gray-100 text-gray-800',
-  INTAKE_DONE: 'bg-blue-100 text-blue-800',
-  COLLECTING: 'bg-yellow-100 text-yellow-800',
-  READY: 'bg-green-100 text-green-800',
-}
+// #88: Removed statusColors — engagement status badge removed (progress % is sufficient)
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
@@ -311,8 +307,15 @@ export default function EngagementDetail() {
   const completionPct = reconciliation?.completionPercentage ?? 0
   const errorDocs = visibleDocuments.filter(d => getDocStatus(d) === 'error')
   const warningDocs = visibleDocuments.filter(d => getDocStatus(d) === 'warning')
-  const timeSaved = Math.round(visibleDocuments.length * 0.75)
+  // #88: Removed timeSaved metric — replaced by missingItems count in tiles
   const missingItems = checklist.filter(item => item.status === 'pending')
+  // #84: Auto-select first document so users never see empty "Select a document" state
+  useEffect(() => {
+    if (!selectedDocId && visibleDocuments.length > 0) {
+      setSelectedDocId(visibleDocuments[0].id)
+    }
+  }, [visibleDocuments.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
   return (
@@ -349,6 +352,7 @@ export default function EngagementDetail() {
             )}
           </div>
         </div>
+        {/* #88: Removed engagement status badge — progress % already conveys this */}
         <div className="flex items-center gap-[60px] mb-6">
           <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-500">Email</div>
@@ -359,18 +363,12 @@ export default function EngagementDetail() {
             <div className="text-base font-medium">{engagement.taxYear}</div>
           </div>
           <div className="flex flex-col gap-2">
-            <div className="text-sm text-gray-500">Status</div>
-            <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium ${statusColors[engagement.status]}`}>
-              {engagement.status.replace(/_/g, ' ')}
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
             <div className="text-sm text-gray-500">Storage</div>
             <a
               href={engagement.storageFolderUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium inline-flex items-center gap-2 text-blue-500 hover:text-blue-600"
+              className="text-sm font-medium inline-flex items-center gap-2 text-[#042f84] hover:text-[#03246a]"
             >
               {storageIcon(engagement.storageProvider)}
               {formatStorageProvider(engagement.storageProvider)}
@@ -388,7 +386,7 @@ export default function EngagementDetail() {
               <div className="flex-1">
                 <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${completionPct >= 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+                    className={`h-full rounded-full transition-all ${completionPct >= 100 ? 'bg-green-600' : 'bg-[#042f84]'}`}
                     style={{ width: `${Math.min(completionPct, 100)}%` }}
                   />
                 </div>
@@ -411,43 +409,44 @@ export default function EngagementDetail() {
             </div>
           </div>
 
-          {/* Time Saved */}
+          {/* #88: Replaced "Time Saved" with "Missing Items" — consolidates the red banner into the tile */}
           <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between items-start">
-            <div className="text-sm text-gray-500">Time Saved</div>
-            <div className="text-2xl font-semibold tracking-tight">{timeSaved}hrs</div>
+            <div className="text-sm text-gray-500">Missing Items</div>
+            <div className="flex items-center gap-2">
+              <span className={`text-2xl font-semibold tracking-tight ${missingItems.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {missingItems.length}
+              </span>
+              {missingItems.length > 0 && (
+                <span className="text-xs text-red-600 font-medium">
+                  {missingItems.filter(i => i.priority === 'high').length} required
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Missing Documents Alert */}
-        {missingItems.length > 0 && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-              <span className="font-medium text-red-800">Missing Documents ({missingItems.length})</span>
-            </div>
-            <ul className="ml-7 space-y-1">
-              {missingItems.map(item => (
-                <li key={item.id} className="text-sm text-red-700 flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${item.priority === 'high' ? 'bg-red-500' : item.priority === 'medium' ? 'bg-yellow-500' : 'bg-gray-400'}`} />
-                  {item.title}
-                  {item.priority === 'high' && <span className="text-xs text-red-500 font-medium">(Required)</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* #88: Removed separate Missing Documents banner — info consolidated into "Missing Items" tile above */}
 
-        {/* Split Panel */}
+        {/* Split Panel — #84: Only show table+detail when documents exist */}
+        {visibleDocuments.length === 0 ? (
+          <div className="border border-[#e5e5e5] rounded-lg p-12 text-center text-gray-500">
+            <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <p className="text-sm font-medium">No documents yet</p>
+            <p className="text-xs text-gray-400 mt-1">Documents will appear here once uploaded</p>
+          </div>
+        ) : (
         <div className="flex gap-[3px]">
           {/* Left: Document Table */}
           <div className="flex-1 border border-[#e5e5e5] rounded-lg overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-[200px_200px_1fr] text-sm font-medium text-gray-900 px-2 py-2 bg-gray-50">
+            {/* #88: Added Issues column for at-a-glance issue count */}
+            <div className="grid grid-cols-[200px_150px_60px_1fr] text-sm font-medium text-gray-900 px-2 py-2 bg-gray-50">
               <div>Document</div>
               <div>Status</div>
+              <div>Issues</div>
               <div>Uploaded at</div>
             </div>
 
@@ -468,7 +467,7 @@ export default function EngagementDetail() {
                         setSelectedDocId(doc.id)
                         setExpandedIssueIdx(0)
                       }}
-                      className={`w-full grid grid-cols-[200px_200px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
+                      className={`w-full grid grid-cols-[200px_150px_60px_1fr] items-center px-2 h-[42px] text-sm border-b border-[#e5e5e5] transition-colors text-left ${
                         isSelected ? 'bg-black/5' : 'hover:bg-gray-50'
                       } ${doc.archivedAt ? 'opacity-50' : ''}`}
                     >
@@ -478,7 +477,7 @@ export default function EngagementDetail() {
                       <div>
                         {status === 'error' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-100 text-red-600 border border-[#e5e5e5]">
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
                             Needs Action
                           </span>
                         ) : status === 'warning' ? (
@@ -491,6 +490,14 @@ export default function EngagementDetail() {
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5" /></svg>
                             OK
                           </span>
+                        )}
+                      </div>
+                      {/* #88: Issues count column */}
+                      <div className="text-sm">
+                        {doc.issues.length > 0 ? (
+                          <span className="text-red-600 font-medium">{doc.issues.length}</span>
+                        ) : (
+                          <span className="text-gray-400">0</span>
                         )}
                       </div>
                       <div className="text-gray-900 text-sm">{formatDate(doc.classifiedAt)}</div>
@@ -510,7 +517,7 @@ export default function EngagementDetail() {
 
           {/* Right: Document Detail Panel */}
           <div className="w-[457px] flex-shrink-0 bg-white border border-[#e5e5e5] rounded-lg shadow-sm overflow-hidden">
-            {selectedDoc ? (
+            {selectedDoc && (
               <DocumentPanel
                 key={selectedDoc.id}
                 doc={selectedDoc}
@@ -524,18 +531,13 @@ export default function EngagementDetail() {
                 onUnarchive={handleUnarchiveDocument}
                 onOpenEmail={openEmailModal}
                 actionInProgress={actionInProgress}
+                storageFolderUrl={engagement.storageFolderUrl}
+                storageProvider={engagement.storageProvider}
               />
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-gray-400 min-h-[400px]">
-                <svg className="w-12 h-12 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M9 12h6M12 9v6M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm font-medium text-gray-500">Select a document</p>
-                <p className="text-xs text-gray-400 mt-1">Click a row to view details</p>
-              </div>
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* Prep Brief Side Sheet */}
@@ -559,12 +561,12 @@ export default function EngagementDetail() {
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {generatingBrief ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                  <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mb-3" />
+                  <div className="animate-spin w-8 h-8 border-2 border-[#042f84] border-t-transparent rounded-full mb-3" />
                   <p>Generating prep brief...</p>
                 </div>
               ) : engagement.prepBrief ? (
-                <div className="prep-brief">
-                  <Markdown>{engagement.prepBrief}</Markdown>
+                <div className="prose prose-sm max-w-none">
+                  <Markdown remarkPlugins={[remarkGfm]}>{engagement.prepBrief}</Markdown>
                 </div>
               ) : (
                 <div className="text-center py-20 text-gray-500">
@@ -583,7 +585,7 @@ export default function EngagementDetail() {
             <h3 className="text-lg font-semibold mb-4">Send Follow-up Email</h3>
             {loadingEmail ? (
               <div className="py-8 text-center text-gray-500">
-                <div className="animate-spin inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mb-2" />
+                <div className="animate-spin inline-block w-6 h-6 border-2 border-[#042f84] border-t-transparent rounded-full mb-2" />
                 <p>Generating email...</p>
               </div>
             ) : (
@@ -632,7 +634,7 @@ export default function EngagementDetail() {
                       setEmailDocId(null)
                     }}
                     disabled={!emailInput || !subjectInput || !bodyInput}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-[#042f84] text-white rounded-lg hover:bg-[#03246a] disabled:opacity-50"
                   >
                     Send Email
                   </button>
@@ -659,6 +661,8 @@ interface DocumentPanelProps {
   onUnarchive: (docId: string) => Promise<void>
   onOpenEmail: (docId: string) => void
   actionInProgress: string | null
+  storageFolderUrl?: string
+  storageProvider?: string
 }
 
 function DocumentPanel({
@@ -673,9 +677,10 @@ function DocumentPanel({
   onUnarchive,
   onOpenEmail,
   actionInProgress,
+  storageFolderUrl,
+  storageProvider,
 }: DocumentPanelProps) {
   const [selectedType, setSelectedType] = useState('')
-  const [showAllIssues, setShowAllIssues] = useState(false)
   const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
 
   const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
@@ -732,6 +737,21 @@ function DocumentPanel({
             >
               {actionInProgress === 'retry' ? 'Retrying...' : 'Retry Processing'}
             </button>
+          </div>
+        )}
+
+        {/* View Document button - #90: Make doc preview discoverable */}
+        {storageFolderUrl && (
+          <div className="px-4 mt-3">
+            <a
+              href={storageFolderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#042f84] text-white text-sm font-medium rounded-lg hover:bg-[#03246a] transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+              View in {formatStorageProvider(storageProvider || '')}
+            </a>
           </div>
         )}
 
@@ -803,24 +823,15 @@ function DocumentPanel({
           </div>
         )}
 
-        {/* Issues section */}
+        {/* Issues section - #92: Removed "See All" button, users scroll within container */}
         {friendlyIssues.length > 0 && (
           <div className="mt-8">
-            <div className="flex items-center justify-between px-4 mb-2">
+            <div className="px-4 mb-2">
               <h3 className="text-base font-semibold text-gray-900">Issues</h3>
-              {friendlyIssues.length > 2 && (
-                <button 
-                  className="text-sm font-medium text-blue-500 hover:text-blue-600"
-                  onClick={() => setShowAllIssues(!showAllIssues)}
-                >
-                  {showAllIssues ? 'Show Less' : 'See All'}
-                </button>
-              )}
             </div>
 
             <div>
-              {/* #28: Limit to 2 issues unless "See All" is clicked */}
-              {(showAllIssues ? friendlyIssues : friendlyIssues.slice(0, 2)).map((issue, idx) => {
+              {friendlyIssues.map((issue, idx) => {
                 const isExpanded = expandedIssueIdx === idx
                 return (
                   <div key={idx}>
@@ -829,10 +840,10 @@ function DocumentPanel({
                       onClick={() => setExpandedIssueIdx(isExpanded ? -1 : idx)}
                       className="w-full flex items-center gap-2 px-4 py-2 text-left"
                     >
-                      <svg className="w-4 h-4 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                      <svg className="w-4 h-4 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
                       <span className="text-sm font-medium text-gray-900 flex-1">{issue.friendlyMessage}</span>
                       <svg
-                        className={`w-6 h-6 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -843,10 +854,6 @@ function DocumentPanel({
                     </button>
                     {isExpanded && (
                       <div className="pl-[36px] pr-4 pb-4 flex flex-col gap-4">
-                        <div className="flex flex-col gap-1">
-                          <div className="text-sm text-gray-500">Issue Description</div>
-                          <div className="text-sm text-black">{issue.friendlyMessage}</div>
-                        </div>
                         <div className="flex flex-col gap-1">
                           <div className="text-sm text-gray-500">Recommended Action</div>
                           <div className="text-sm text-black">{issue.suggestedAction}</div>
@@ -881,15 +888,15 @@ function DocumentPanel({
           <button
             onClick={() => onApprove(doc.id)}
             disabled={actionInProgress !== null}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
-            {actionInProgress === 'approve' ? 'Approving...' : 'Approve'}
+            {actionInProgress === 'approve' ? 'Approving...' : 'Approve Anyway'}
           </button>
           <button
             onClick={() => onOpenEmail(doc.id)}
             disabled={actionInProgress !== null}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-[#171717] text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
             Email Follow-Up

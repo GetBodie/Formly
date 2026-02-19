@@ -114,7 +114,7 @@ describe('EngagementDetail', () => {
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
     expect(screen.getByText('Tax Year')).toBeInTheDocument()
     expect(screen.getByText('2025')).toBeInTheDocument()
-    expect(screen.getByText('COLLECTING')).toBeInTheDocument()
+    // #88: Status badge removed — progress % is the primary indicator
     expect(screen.getByText('50%')).toBeInTheDocument()
   })
 
@@ -365,47 +365,41 @@ describe('EngagementDetail', () => {
 
       renderWithRouter('eng_001')
 
+      // PENDING documents display as "Processing..." in the table
       await waitFor(() => {
-        expect(screen.getByText('PENDING')).toBeInTheDocument()
+        expect(screen.getByText('Processing...')).toBeInTheDocument()
       })
     })
 
-    it('shows "Check for Docs" button for COLLECTING status', async () => {
+    it('auto-polls when status is COLLECTING', async () => {
       vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
 
       renderWithRouter('eng_001')
 
+      // Wait for initial render
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Check for Docs/i })).toBeInTheDocument()
+        expect(screen.getByText('Test Client')).toBeInTheDocument()
       })
-    })
 
-    it('calls processEngagement when "Check for Docs" clicked', async () => {
-      const user = userEvent.setup()
-      vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
-      vi.mocked(processEngagement).mockResolvedValueOnce({
-        success: true,
-        totalDocuments: 1,
-        pendingDocuments: 0,
-      })
-      // Re-fetch after process
+      // Initial load call
+      expect(getEngagement).toHaveBeenCalledTimes(1)
+
+      // The component sets up a 3s polling interval for COLLECTING status
+      // Mock the second call
       vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
 
-      renderWithRouter('eng_001')
-
+      // Wait for the polling interval to trigger
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Check for Docs/i })).toBeInTheDocument()
-      })
-
-      await user.click(screen.getByRole('button', { name: /Check for Docs/i }))
-
-      await waitFor(() => {
-        expect(processEngagement).toHaveBeenCalledWith('eng_001')
-      })
+        expect(getEngagement).toHaveBeenCalledTimes(2)
+      }, { timeout: 5000 })
     })
 
-    it('shows "Check for Docs" button for READY status too', async () => {
-      const readyEngagement = { ...mockEngagement, status: 'READY' }
+    it('shows View Prep Brief button for READY status', async () => {
+      const readyEngagement = {
+        ...mockEngagement,
+        status: 'READY',
+        reconciliation: { ...mockEngagement.reconciliation, completionPercentage: 100 },
+      }
       vi.mocked(getEngagement).mockResolvedValueOnce(readyEngagement as any)
 
       renderWithRouter('eng_001')
@@ -414,32 +408,31 @@ describe('EngagementDetail', () => {
         expect(screen.getByText('Test Client')).toBeInTheDocument()
       })
 
-      // Button is always shown in the new UI
-      expect(screen.getByRole('button', { name: /Check for Docs/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /View Prep Brief/i })).toBeInTheDocument()
     })
 
-    it('auto-polls when status is COLLECTING', async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true })
-      vi.mocked(getEngagement).mockResolvedValue(mockEngagement as any)
+    it('shows storage provider link', async () => {
+      vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
 
       renderWithRouter('eng_001')
 
-      // Wait for initial render
-      await vi.waitFor(() => {
+      await waitFor(() => {
         expect(screen.getByText('Test Client')).toBeInTheDocument()
       })
 
-      // Initial load call
-      expect(getEngagement).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Dropbox')).toBeInTheDocument()
+    })
 
-      // Advance past one polling interval
-      await vi.advanceTimersByTimeAsync(3100)
+    it('shows stat tiles with completion percentage', async () => {
+      vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
 
-      await vi.waitFor(() => {
-        expect(getEngagement).toHaveBeenCalledTimes(2)
+      renderWithRouter('eng_001')
+
+      await waitFor(() => {
+        expect(screen.getByText('50%')).toBeInTheDocument()
       })
 
-      vi.useRealTimers()
+      expect(screen.getByText('Documents Received')).toBeInTheDocument()
     })
   })
 
