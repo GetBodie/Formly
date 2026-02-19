@@ -23,6 +23,7 @@ const SUPPORTED_MIME_TYPES = new Set([
   'application/pdf',
   'image/jpeg',
   'image/png',
+  'image/webp',
   'image/heic',
   'image/heif',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx

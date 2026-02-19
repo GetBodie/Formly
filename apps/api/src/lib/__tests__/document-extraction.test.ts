@@ -36,6 +36,10 @@ describe('isSupportedFileType', () => {
       expect(isSupportedFileType('image/png')).toBe(true)
     })
 
+    it('supports WebP images', () => {
+      expect(isSupportedFileType('image/webp')).toBe(true)
+    })
+
     it('supports HEIC images', () => {
       expect(isSupportedFileType('image/heic')).toBe(true)
     })
