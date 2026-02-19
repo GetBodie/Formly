@@ -179,12 +179,15 @@ export async function sendEmail(
     throw new Error('[EMAIL] EMAIL_FROM is not set')
   }
 
+  const replyTo = process.env.EMAIL_REPLY_TO || process.env.EMAIL_FROM
+
   const resend = getResendClient()
-  console.log(`[EMAIL] Sending email to ${to}, subject: "${template.subject}", from: ${process.env.EMAIL_FROM}`)
+  console.log(`[EMAIL] Sending email to ${to}, subject: "${template.subject}", from: ${process.env.EMAIL_FROM}, replyTo: ${replyTo}`)
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM,
+      replyTo,
       to,
       subject: template.subject,
       html: template.html
