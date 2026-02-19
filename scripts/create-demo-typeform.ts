@@ -24,6 +24,7 @@ const formDefinition = {
     is_public: true,
     progress_bar: 'proportion',
     show_progress_bar: true,
+    show_navigation_bar: true,  // #75: Enable back button for incorrect selections
     meta: {
       allow_indexing: false
     }
