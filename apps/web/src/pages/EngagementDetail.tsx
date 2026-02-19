@@ -711,21 +711,25 @@ function DocumentPanel({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Archived banner */}
+        {/* Archived banner — #117: Separated restore button from banner for consistent sizing */}
         {doc.archivedAt && (
-          <div className="mx-4 mt-3 p-3 bg-gray-100 border border-gray-300 rounded-lg">
-            <div className="text-sm font-medium text-gray-700">Document Archived</div>
-            {doc.archivedReason && (
-              <p className="mt-1 text-xs text-gray-600">{doc.archivedReason}</p>
-            )}
-            <button
-              onClick={() => onUnarchive(doc.id)}
-              disabled={actionInProgress !== null}
-              className="mt-2 w-full py-1.5 px-3 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
-            >
-              {actionInProgress === 'unarchive' ? 'Restoring...' : 'Restore Document'}
-            </button>
-          </div>
+          <>
+            <div className="mx-4 mt-3 p-3 bg-gray-100 border border-gray-300 rounded-lg">
+              <div className="text-sm font-medium text-gray-700">Document Archived</div>
+              {doc.archivedReason && (
+                <p className="mt-1 text-xs text-gray-600">{doc.archivedReason}</p>
+              )}
+            </div>
+            <div className="px-4 mt-2">
+              <button
+                onClick={() => onUnarchive(doc.id)}
+                disabled={actionInProgress !== null}
+                className="w-full h-9 px-3 text-sm bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                {actionInProgress === 'unarchive' ? 'Restoring...' : 'Restore Document'}
+              </button>
+            </div>
+          </>
         )}
 
         {/* Error state */}
@@ -802,7 +806,7 @@ function DocumentPanel({
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="flex-1 py-1.5 px-3 border border-gray-200 rounded-lg text-sm"
+                className="flex-1 h-[34px] px-3 border border-gray-200 rounded-lg text-sm"
               >
                 <option value="">Change type to...</option>
                 {DOCUMENT_TYPES.filter(t => t !== doc.documentType && t !== 'PENDING').map(type => (
@@ -817,7 +821,7 @@ function DocumentPanel({
                   }
                 }}
                 disabled={!selectedType || actionInProgress !== null}
-                className="py-1.5 px-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
+                className="h-[34px] px-4 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium"
               >
                 Apply
               </button>
@@ -884,7 +888,7 @@ function DocumentPanel({
             <button
               onClick={() => onArchive(doc.id, 'Replaced by newer document')}
               disabled={actionInProgress !== null}
-              className="w-full py-1.5 px-3 border border-gray-300 text-gray-500 text-xs rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="w-full h-9 px-3 border border-gray-300 text-gray-500 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               Archive Document
             </button>

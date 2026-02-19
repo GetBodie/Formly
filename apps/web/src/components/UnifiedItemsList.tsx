@@ -487,6 +487,7 @@ function DocumentDetail({
       <div className="p-4 space-y-4">
         {/* Archived State */}
         {doc.archivedAt && (
+          <>{/* #117: Separated restore button from banner for consistent sizing */}
           <div className="p-4 bg-gray-100 border border-gray-300 rounded-lg">
             <div className="flex items-center gap-2 text-gray-700 font-medium">
               <span>📦</span>
@@ -495,14 +496,15 @@ function DocumentDetail({
             {doc.archivedReason && (
               <p className="mt-1 text-sm text-gray-600">{doc.archivedReason}</p>
             )}
-            <button
-              onClick={() => onUnarchive(doc.id)}
-              disabled={actionInProgress !== null}
-              className="mt-3 w-full py-2 px-4 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
-            >
-              {actionInProgress === 'unarchive' ? 'Restoring...' : '↩️ Restore Document'}
-            </button>
           </div>
+          <button
+            onClick={() => onUnarchive(doc.id)}
+            disabled={actionInProgress !== null}
+            className="w-full h-10 px-4 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {actionInProgress === 'unarchive' ? 'Restoring...' : '↩️ Restore Document'}
+          </button>
+          </>
         )}
 
         {/* Error State */}
@@ -653,9 +655,9 @@ function DocumentDetail({
                   }
                 }}
                 disabled={!selectedType || actionInProgress !== null}
-                className="py-2 px-4 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="h-10 px-4 border rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium"
               >
-                ✎
+                Apply
               </button>
             </div>
           </div>
@@ -667,7 +669,7 @@ function DocumentDetail({
             <button
               onClick={() => onArchive(doc.id, 'Replaced by newer document')}
               disabled={actionInProgress !== null}
-              className="w-full py-2 px-4 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="w-full h-10 px-4 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               📦 Archive Document
             </button>
