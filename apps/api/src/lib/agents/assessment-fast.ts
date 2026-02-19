@@ -1,6 +1,7 @@
 import { prisma } from '../prisma.js'
 import { classifyDocumentAgentic, type DocumentImage } from './classifier-agent.js'
 import { getStorageClient, type StorageProvider } from '../storage/index.js'
+import { FileNotFoundError } from '../storage/types.js'
 import { isSupportedFileType } from '../document-extraction.js'
 
 // Processing timeout: 5 minutes max per document
@@ -141,6 +142,21 @@ export async function runAssessmentFast(context: {
     }
 
   } catch (error) {
+    // If the file was deleted/moved from storage, archive it instead of retrying
+    if (error instanceof FileNotFoundError) {
+      console.log(`[FAST] File not found in storage, archiving document ${documentId}: ${fileName}`)
+      await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          processingStatus: 'error',
+          processingStartedAt: null,
+          archivedAt: new Date(),
+          archivedReason: 'File deleted or moved from storage provider',
+        }
+      })
+      return { hasIssues: true, documentType: 'PENDING' }
+    }
+
     console.error(`[FAST] Error processing ${fileName}:`, error)
 
     await prisma.document.update({
