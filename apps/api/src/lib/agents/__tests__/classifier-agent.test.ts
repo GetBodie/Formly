@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   classifyDocumentAgentic,
   gradeWithLLM,
+  detectTypeFromFileName,
   type ClassificationResult,
   type DocumentImage,
 } from '../classifier-agent.js'
@@ -18,21 +19,23 @@ import {
 // MOCKS
 // ============================================
 
-const { mockParse } = vi.hoisted(() => ({
-  mockParse: vi.fn(),
-}))
-
-vi.mock('openai', () => ({
-  default: vi.fn(() => ({
-    chat: {
+const { mockParse, MockOpenAI } = vi.hoisted(() => {
+  const mockParse = vi.fn()
+  class MockOpenAI {
+    chat = {
       completions: {
         parse: mockParse,
         create: vi.fn().mockResolvedValue({
           choices: [{ message: { content: 'OCR text' } }],
         }),
       },
-    },
-  })),
+    }
+  }
+  return { mockParse, MockOpenAI }
+})
+
+vi.mock('openai', () => ({
+  default: MockOpenAI,
 }))
 
 vi.mock('openai/helpers/zod', () => ({
@@ -216,6 +219,57 @@ describe('gradeWithLLM', () => {
 
     expect(grade.score).toBe(0.5)
     expect(grade.issues.some(i => i.includes('parse_error'))).toBe(true)
+  })
+})
+
+// ============================================
+// FILENAME-BASED TYPE DETECTION
+// ============================================
+
+describe('detectTypeFromFileName', () => {
+  it('should detect W-2 from filename', () => {
+    expect(detectTypeFromFileName('w2-acme-2024.pdf')).toBe('W-2')
+    expect(detectTypeFromFileName('W-2_employer.png')).toBe('W-2')
+    expect(detectTypeFromFileName('my_w2.jpg')).toBe('W-2')
+  })
+
+  it('should detect 1099-NEC from filename', () => {
+    expect(detectTypeFromFileName('1099nec-consult-2024.pdf')).toBe('1099-NEC')
+    expect(detectTypeFromFileName('1099-NEC-freelance.pdf')).toBe('1099-NEC')
+  })
+
+  it('should detect 1099-INT from filename', () => {
+    expect(detectTypeFromFileName('1099int-bigbank-2024.pdf')).toBe('1099-INT')
+  })
+
+  it('should detect 1099-DIV from filename', () => {
+    expect(detectTypeFromFileName('1099div-invest-2024.pdf')).toBe('1099-DIV')
+  })
+
+  it('should detect 1098 from filename', () => {
+    expect(detectTypeFromFileName('1098-mortgage-2024.pdf')).toBe('1098')
+    expect(detectTypeFromFileName('mortgage-statement.pdf')).toBe('1098')
+  })
+
+  it('should detect 1098-T before 1098', () => {
+    expect(detectTypeFromFileName('1098t-university.pdf')).toBe('1098-T')
+    expect(detectTypeFromFileName('1098-T-tuition.pdf')).toBe('1098-T')
+  })
+
+  it('should return null for unrecognizable filenames', () => {
+    expect(detectTypeFromFileName('document.pdf')).toBeNull()
+    expect(detectTypeFromFileName('scan_001.jpg')).toBeNull()
+    expect(detectTypeFromFileName('photo.png')).toBeNull()
+  })
+
+  it('should detect schedule types', () => {
+    expect(detectTypeFromFileName('schedule-c-2024.pdf')).toBe('SCHEDULE-C')
+    expect(detectTypeFromFileName('ScheduleA.pdf')).toBe('SCHEDULE-A')
+  })
+
+  it('should detect K-1', () => {
+    expect(detectTypeFromFileName('k1-partnership.pdf')).toBe('K-1')
+    expect(detectTypeFromFileName('K-1_2024.pdf')).toBe('K-1')
   })
 })
 

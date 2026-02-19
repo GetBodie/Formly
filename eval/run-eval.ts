@@ -11,6 +11,12 @@
 
 import fs from "fs";
 import path from "path";
+import { config } from "dotenv";
+
+// Load env vars from api app's .env if available
+config({ path: path.resolve(import.meta.dirname, "../apps/api/.env") });
+
+import { classifyDocumentAgentic } from "../apps/api/src/lib/agents/classifier-agent.js";
 
 interface GroundTruthEntry {
   docPath: string;
@@ -61,11 +67,27 @@ async function loadGroundTruth(): Promise<GroundTruthEntry[]> {
 }
 
 async function classifyDocument(
-  _docPath: string
+  docPath: string
 ): Promise<{ type: string; fields: Record<string, unknown> } | null> {
-  // TODO: Implement actual API call to classifier
-  // For now, return null to indicate not implemented
-  return null;
+  const fullPath = path.join(import.meta.dirname, docPath);
+
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`Document not found: ${fullPath}`);
+  }
+
+  const fileBuffer = fs.readFileSync(fullPath);
+  const base64 = fileBuffer.toString("base64");
+  const fileName = path.basename(docPath);
+
+  const result = await classifyDocumentAgentic(
+    { base64, mimeType: "application/pdf" },
+    fileName
+  );
+
+  return {
+    type: result.documentType,
+    fields: result.extractedFields,
+  };
 }
 
 async function evaluateDocument(
@@ -81,7 +103,7 @@ async function evaluateDocument(
         docPath: entry.docPath,
         passed: false,
         expectedType: entry.expectedType,
-        errors: ["Classifier not implemented yet"],
+        errors: ["Classifier returned null"],
       };
     }
 
@@ -141,6 +163,16 @@ async function runEval(): Promise<void> {
 
   console.log("🧪 Formly Document Classifier Evaluation");
   console.log("=========================================\n");
+
+  // Check for required API keys
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.log("⚠️  ANTHROPIC_API_KEY not set. Cannot run eval.");
+    if (ci) {
+      console.log("   Skipping eval in CI (no secrets available).");
+      process.exit(0);
+    }
+    process.exit(1);
+  }
 
   let groundTruth = await loadGroundTruth();
 

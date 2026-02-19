@@ -95,6 +95,50 @@ jobs:
         run: npm test
         working-directory: apps/api
 
+  eval:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for required secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "has_secrets=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_secrets=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install API dependencies
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        run: npm ci
+        working-directory: apps/api
+
+      - name: Install eval dependencies
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        run: npm ci
+        working-directory: eval
+
+      - name: Run eval
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        run: npx tsx run-eval.ts --ci --fail-threshold=80
+        working-directory: eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Skip eval (no secrets)
+        if: steps.check-secrets.outputs.has_secrets != 'true'
+        run: echo "⚠️ Skipping eval - no API secrets available (fork PR?)"
+
   build-web:
     runs-on: ubuntu-latest
     steps:

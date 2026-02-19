@@ -56,7 +56,7 @@ describe('Dashboard', () => {
 
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
     expect(screen.getByText('2025')).toBeInTheDocument()
-    expect(screen.getByText('Collecting')).toBeInTheDocument()
+    expect(screen.getByText('Pending')).toBeInTheDocument()
     expect(screen.getByText('50%')).toBeInTheDocument()
   })
 

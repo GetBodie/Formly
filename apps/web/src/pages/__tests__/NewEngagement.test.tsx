@@ -56,6 +56,10 @@ describe('NewEngagement', () => {
 
     await user.type(screen.getByLabelText(/Client Name/i), 'Test Client')
     await user.type(screen.getByLabelText(/Client Email/i), 'test@example.com')
+
+    // Select provider first to avoid input element swap during typing
+    await user.click(screen.getByRole('button', { name: 'Dropbox' }))
+
     await user.type(
       screen.getByLabelText(/Storage Folder URL/i),
       'https://www.dropbox.com/sh/test123/xyz'
@@ -187,8 +191,7 @@ describe('NewEngagement', () => {
       'https://www.dropbox.com/sh/test123/xyz'
     )
 
-    // Check detection indicator appears (green checkmark + "Detected:" text)
-    expect(screen.getByText('✓')).toBeInTheDocument()
+    // Check detection indicator appears (SVG checkmark + "Detected:" text)
     expect(screen.getByText(/Detected:/)).toBeInTheDocument()
   })
 
@@ -201,8 +204,7 @@ describe('NewEngagement', () => {
       'https://drive.google.com/drive/folders/abc123'
     )
 
-    // Check detection indicator appears (green checkmark + "Detected:" text)
-    expect(screen.getByText('✓')).toBeInTheDocument()
+    // Check detection indicator appears (SVG checkmark + "Detected:" text)
     expect(screen.getByText(/Detected:/)).toBeInTheDocument()
   })
 
@@ -215,8 +217,7 @@ describe('NewEngagement', () => {
       'https://company.sharepoint.com/sites/documents'
     )
 
-    // Check that detection shows up (green checkmark + "Detected:" text)
-    expect(screen.getByText('✓')).toBeInTheDocument()
+    // Check that detection shows up (SVG checkmark + "Detected:" text)
     expect(screen.getByText(/Detected:/)).toBeInTheDocument()
   })
 
@@ -392,8 +393,8 @@ describe('NewEngagement', () => {
       
       await user.click(dropboxBtn)
 
-      expect(dropboxBtn).toHaveClass('border-blue-500')
-      expect(dropboxBtn).toHaveClass('bg-blue-50')
+      expect(dropboxBtn).toHaveClass('border-[#042f84]')
+      expect(dropboxBtn).toHaveClass('bg-[#042f84]/5')
     })
   })
 

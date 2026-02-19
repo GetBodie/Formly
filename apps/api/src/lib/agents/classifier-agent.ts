@@ -718,6 +718,48 @@ async function executeToolCall(
 }
 
 // ============================================
+// DETERMINISTIC PRE-CLASSIFICATION (filename hints)
+// ============================================
+
+/**
+ * Detect likely document type from filename patterns.
+ * Returns a hint string to include in the system prompt so the agent
+ * starts with a consistent initial guess rather than varying each run.
+ */
+export function detectTypeFromFileName(fileName: string): string | null {
+  const name = fileName.toLowerCase().replace(/[_\s-]+/g, '')
+  const patterns: [RegExp, string][] = [
+    [/w2|w-2|wage/i, 'W-2'],
+    [/1099nec|1099[-_]?nec|nonemployee/i, '1099-NEC'],
+    [/1099int|1099[-_]?int|interest/i, '1099-INT'],
+    [/1099div|1099[-_]?div|dividend/i, '1099-DIV'],
+    [/1099b|1099[-_]?b|broker|proceeds/i, '1099-B'],
+    [/1099r|1099[-_]?r|distribution|pension|retirement/i, '1099-R'],
+    [/1099misc|1099[-_]?misc/i, '1099-MISC'],
+    [/1099g|1099[-_]?g|unemployment/i, '1099-G'],
+    [/1099k|1099[-_]?k|paymentcard/i, '1099-K'],
+    [/ssa[-_]?1099|socialsecurity/i, 'SSA-1099'],
+    [/1098t|1098[-_]?t|tuition/i, '1098-T'],
+    [/1098|mortgage/i, '1098'],
+    [/schedule[-_]?a|schedulea|itemized/i, 'SCHEDULE-A'],
+    [/schedule[-_]?c|schedulec|profitloss/i, 'SCHEDULE-C'],
+    [/schedule[-_]?d|scheduled|capitalgain/i, 'SCHEDULE-D'],
+    [/schedule[-_]?e|schedulee|rental/i, 'SCHEDULE-E'],
+    [/k[-_]?1|partner.*share|shareholder.*share/i, 'K-1'],
+    [/1065|partnership.*return/i, 'FORM-1065'],
+    [/1120[-_]?s|scorp/i, 'FORM-1120-S'],
+    [/941|quarterly.*tax/i, 'FORM-941'],
+    [/receipt/i, 'RECEIPT'],
+    [/statement|bankstatement/i, 'STATEMENT'],
+  ]
+
+  for (const [pattern, type] of patterns) {
+    if (pattern.test(name)) return type
+  }
+  return null
+}
+
+// ============================================
 // SYSTEM PROMPT
 // ============================================
 
@@ -814,14 +856,20 @@ export async function classifyDocumentAgentic(
   const imageMediaType = mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
   const isPDF = mimeType === 'application/pdf'
 
+  // Deterministic hint from filename to guide consistent initial type guess
+  const fileNameHint = detectTypeFromFileName(fileName)
+  const hintText = fileNameHint
+    ? ` The filename suggests this is likely a ${fileNameHint} — start with that type.`
+    : ''
+
   const userContent: Anthropic.ContentBlockParam[] = isPDF
     ? [{
         type: 'text',
-        text: 'Classify this PDF document. Start with ocr_extract to get the text content, then use extract_fields.'
+        text: `Classify this PDF document. Start with ocr_extract to get the text content, then use extract_fields.${hintText}`
       }]
     : [
         { type: 'image', source: { type: 'base64', media_type: imageMediaType, data: base64 } },
-        { type: 'text', text: 'Classify this document. Start with vision_extract for your best type guess. Use ocr_extract + extract_fields if the grade is low.' }
+        { type: 'text', text: `Classify this document. Start with vision_extract for your best type guess. Use ocr_extract + extract_fields if the grade is low.${hintText}` }
       ]
 
   const messages: Anthropic.MessageParam[] = [
@@ -841,6 +889,7 @@ export async function classifyDocumentAgentic(
     const response = await anthropic.messages.create({
       model: 'claude-opus-4-20250514',
       max_tokens: 4096,
+      temperature: 0,
       system: systemPrompt,
       tools: availableTools,
       messages

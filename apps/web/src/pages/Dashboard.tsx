@@ -2,35 +2,35 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getEngagements, deleteAllEngagements, type Engagement } from '../api/client'
 
-const statusConfig: Record<string, { label: string; dotColor: string; textColor: string; icon?: 'check' }> = {
-  PENDING: { label: 'Pending', dotColor: 'bg-amber-400', textColor: 'text-amber-600' },
-  INTAKE_DONE: { label: 'Intake Done', dotColor: 'bg-blue-500', textColor: 'text-blue-600' },
-  COLLECTING: { label: 'Collecting', dotColor: 'bg-orange-500', textColor: 'text-orange-600' },
-  READY: { label: 'Ready', dotColor: 'bg-green-500', textColor: 'text-green-600', icon: 'check' },
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const config = statusConfig[status] || statusConfig.PENDING
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-sm ${config.textColor}`}>
-      {config.icon === 'check' ? (
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+// Two states: Pending (0-99%), Ready (100%) — #83: simplified from 3 states
+// Progress bar provides granular detail; status badge is binary
+function StatusBadge({ completion }: { completion: number }) {
+  if (completion === 100) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-100 text-green-900 border border-[#e5e5e5]">
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+          <path d="M20 6L9 17l-5-5" />
         </svg>
-      ) : (
-        <span className={`w-2 h-2 rounded-full ${config.dotColor}`} />
-      )}
-      {config.label}
+        Ready
+      </span>
+    )
+  }
+  
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-800 border border-[#e5e5e5]">
+      <span className="w-2 h-2 rounded-full bg-gray-400" />
+      Pending
     </span>
   )
 }
 
 function ProgressBar({ value }: { value: number }) {
-  const fillColor = value === 0 ? 'bg-gray-400' : value === 100 ? 'bg-blue-800' : 'bg-blue-600'
+  // #82: Consistent dark blue (#042f84) matching the brand
+  const fillColor = value === 0 ? 'bg-gray-300' : 'bg-[#042f84]'
   return (
     <div className="flex items-center gap-2">
       <span className="w-8 text-sm text-gray-700">{value}%</span>
-      <div className="w-20 h-2 rounded-full bg-gray-200">
+      <div className="w-24 h-2 rounded-full bg-gray-200">
         <div className={`h-2 rounded-full ${fillColor}`} style={{ width: `${value}%` }} />
       </div>
     </div>
@@ -124,7 +124,7 @@ export default function Dashboard() {
         </h1>
         <Link
           to="/engagements/new"
-          className="inline-flex items-center gap-1.5 h-9 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-1.5 h-9 px-4 bg-[#042f84] text-white text-sm font-medium rounded-lg hover:bg-[#03246a] transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -159,11 +159,11 @@ export default function Dashboard() {
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5" style={{ width: 200 }}>Name</th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5" style={{ width: 320 }}>Email</th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5" style={{ width: 200 }}>Status</th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5" style={{ width: 200 }}>Progress</th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5" style={{ width: 272 }}>Tax Year</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 280 }}>Name</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 280 }}>Email</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 140 }}>Status</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 160 }}>Progress</th>
+              <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2.5 whitespace-nowrap" style={{ minWidth: 100 }}>Tax Year</th>
             </tr>
           </thead>
           <tbody>
@@ -173,7 +173,7 @@ export default function Dashboard() {
                   {engagements.length === 0 ? (
                     <div>
                       <p className="mb-2">No engagements yet</p>
-                      <Link to="/engagements/new" className="text-blue-600 hover:underline text-sm">
+                      <Link to="/engagements/new" className="text-[#042f84] hover:underline text-sm">
                         Create your first engagement
                       </Link>
                     </div>
@@ -195,15 +195,15 @@ export default function Dashboard() {
                     role="link"
                     className="h-[42px] border-b border-gray-200 hover:bg-gray-50 cursor-pointer focus:outline-none focus:bg-blue-50"
                   >
-                    <td className="px-4 text-sm font-medium text-gray-900">{engagement.clientName}</td>
-                    <td className="px-4 text-sm text-gray-600">{engagement.clientEmail}</td>
-                    <td className="px-4">
-                      <StatusBadge status={engagement.status} />
+                    <td className="px-4 text-sm font-medium text-gray-900 whitespace-nowrap">{engagement.clientName}</td>
+                    <td className="px-4 text-sm text-gray-600 whitespace-nowrap">{engagement.clientEmail}</td>
+                    <td className="px-4 whitespace-nowrap">
+                      <StatusBadge completion={completion} />
                     </td>
-                    <td className="px-4">
+                    <td className="px-4 whitespace-nowrap">
                       <ProgressBar value={completion} />
                     </td>
-                    <td className="px-4 text-sm text-gray-700">{engagement.taxYear}</td>
+                    <td className="px-4 text-sm text-gray-700 whitespace-nowrap">{engagement.taxYear}</td>
                   </tr>
                 )
               })

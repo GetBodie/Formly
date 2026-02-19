@@ -47,7 +47,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               </button>
               <Link
                 to="/"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-[#042f84] text-white rounded-lg hover:bg-[#03246a]"
                 onClick={() => this.setState({ hasError: false })}
               >
                 Go to Dashboard
