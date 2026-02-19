@@ -194,14 +194,23 @@ export async function generatePrepBrief(engagement: {
   documents: Document[]
   reconciliation: { completionPercentage: number; issues: string[] }
 }): Promise<string> {
+  // #120: Strip internal IDs and metadata that shouldn't appear in client-facing briefs
+  const sanitized = {
+    clientName: engagement.clientName,
+    taxYear: engagement.taxYear,
+    checklist: engagement.checklist.map(({ id, ...rest }) => rest),
+    documents: engagement.documents.map(({ id, storageItemId, ...rest }) => rest),
+    reconciliation: engagement.reconciliation,
+  }
+
   const response = await openai.chat.completions.create({
     model: MODEL,
     messages: [
       {
         role: 'system',
-        content: 'Generate a markdown prep brief for the accountant. Include: client summary, documents received, missing items, issues to discuss, and recommended next steps.',
+        content: 'Generate a markdown prep brief for the accountant. Include: client summary, documents received, missing items, issues to discuss, and recommended next steps. IMPORTANT: Do NOT include any internal system IDs such as engagement IDs, document IDs, or database identifiers. The brief should be clean and client-presentable.',
       },
-      { role: 'user', content: JSON.stringify(engagement) },
+      { role: 'user', content: JSON.stringify(sanitized) },
     ],
     temperature: 0.3,
   })
