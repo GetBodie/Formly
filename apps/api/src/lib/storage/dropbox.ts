@@ -1,6 +1,6 @@
 import { Dropbox } from 'dropbox'
 import type { StorageClient, SyncResult, DownloadResult, FolderInfo, StorageFile, SyncOptions } from './types.js'
-import { DocumentTooLargeError, MAX_FILE_SIZE } from './types.js'
+import { DocumentTooLargeError, FileNotFoundError, MAX_FILE_SIZE } from './types.js'
 
 let dbxClient: Dropbox | null = null
 
@@ -215,6 +215,23 @@ export const dropboxClient: StorageClient = {
         size,
       }
     } catch (error) {
+      // Detect file-not-found errors from Dropbox (path/not_found, 409 with not_found)
+      const errorStr = String(error)
+      const dropboxError = error as { status?: number; error?: { error_summary?: string; error?: { '.tag'?: string; path?: { '.tag'?: string } } } }
+      const isNotFound =
+        errorStr.includes('path/not_found') ||
+        errorStr.includes('not_found') ||
+        dropboxError.error?.error_summary?.includes('path/not_found') ||
+        dropboxError.error?.error_summary?.includes('not_found') ||
+        dropboxError.error?.error?.['.tag'] === 'path' && dropboxError.error?.error?.path?.['.tag'] === 'not_found'
+
+      if (isNotFound) {
+        console.warn(`[DROPBOX] File not found (deleted or moved): ${fileId}`)
+        throw new FileNotFoundError(
+          `File ${fileId} not found in Dropbox. It may have been deleted or moved.`
+        )
+      }
+
       console.error(`[DROPBOX] Download failed for ${fileId}:`, error)
       throw error
     }

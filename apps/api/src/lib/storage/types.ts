@@ -59,5 +59,12 @@ export class DocumentTooLargeError extends Error {
   }
 }
 
+export class FileNotFoundError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'FileNotFoundError'
+  }
+}
+
 // Maximum file size: 25MB
 export const MAX_FILE_SIZE = 25 * 1024 * 1024
