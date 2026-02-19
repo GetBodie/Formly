@@ -16,7 +16,7 @@ import {
   type Engagement,
   type Document,
   type Reconciliation,
-  type FriendlyIssue,
+  type Check,
 } from '../api/client'
 import { parseIssue, getSuggestedAction, hasErrors, hasWarnings } from '../utils/issues'
 
@@ -142,6 +142,16 @@ export default function EngagementDetail() {
       console.warn('URL sync skipped:', e)
     }
   }, [selectedDocId, setSearchParams])
+
+  // #84: Auto-select first document so users never see empty "Select a document" state
+  // Must be before early returns to satisfy Rules of Hooks
+  const allDocuments = engagement ? ((engagement.documents as Document[]) || []) : []
+  const visibleDocuments = showArchived ? allDocuments : allDocuments.filter(d => !d.archivedAt)
+  useEffect(() => {
+    if (!selectedDocId && visibleDocuments.length > 0) {
+      setSelectedDocId(visibleDocuments[0].id)
+    }
+  }, [visibleDocuments.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleGenerateBrief() {
     if (!id || !engagement) return
@@ -299,22 +309,13 @@ export default function EngagementDetail() {
     )
   }
 
-  const allDocuments = (engagement.documents as Document[]) || []
-  const visibleDocuments = showArchived ? allDocuments : allDocuments.filter(d => !d.archivedAt)
   const reconciliation = engagement.reconciliation as Reconciliation | null
   const checklist = (engagement.checklist || []) as Array<{ id: string; title: string; priority: 'high' | 'medium' | 'low'; status: string }>
 
   const completionPct = reconciliation?.completionPercentage ?? 0
   const errorDocs = visibleDocuments.filter(d => getDocStatus(d) === 'error')
   const warningDocs = visibleDocuments.filter(d => getDocStatus(d) === 'warning')
-  // #88: Removed timeSaved metric — replaced by missingItems count in tiles
   const missingItems = checklist.filter(item => item.status === 'pending')
-  // #84: Auto-select first document so users never see empty "Select a document" state
-  useEffect(() => {
-    if (!selectedDocId && visibleDocuments.length > 0) {
-      setSelectedDocId(visibleDocuments[0].id)
-    }
-  }, [visibleDocuments.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedDoc = selectedDocId ? allDocuments.find(d => d.id === selectedDocId) : null
 
@@ -681,9 +682,10 @@ function DocumentPanel({
   storageProvider,
 }: DocumentPanelProps) {
   const [selectedType, setSelectedType] = useState('')
+  const [showAllIssues, setShowAllIssues] = useState(false)
   const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
 
-  const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
+  const checks: Check[] = doc.checks || doc.issues.map(issue => {
     const parsed = parseIssue(issue)
     return {
       original: issue,
@@ -823,15 +825,23 @@ function DocumentPanel({
           </div>
         )}
 
-        {/* Issues section - #92: Removed "See All" button, users scroll within container */}
-        {friendlyIssues.length > 0 && (
+        {/* Issues section */}
+        {checks.length > 0 && (
           <div className="mt-8">
-            <div className="px-4 mb-2">
+            <div className="flex items-center justify-between px-4 mb-2">
               <h3 className="text-base font-semibold text-gray-900">Issues</h3>
+              {checks.length > 2 && (
+                <button
+                  className="text-sm font-medium text-blue-500 hover:text-blue-600"
+                  onClick={() => setShowAllIssues(!showAllIssues)}
+                >
+                  {showAllIssues ? 'Show Less' : 'See All'}
+                </button>
+              )}
             </div>
 
             <div>
-              {friendlyIssues.map((issue, idx) => {
+              {(showAllIssues ? checks : checks.slice(0, 2)).map((issue, idx) => {
                 const isExpanded = expandedIssueIdx === idx
                 return (
                   <div key={idx}>

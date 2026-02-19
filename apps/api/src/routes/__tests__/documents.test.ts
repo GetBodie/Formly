@@ -34,7 +34,7 @@ vi.mock('../../lib/openai.js', () => ({
     subject: 'Action Required: W-2 Issue',
     body: 'Your W-2 document needs attention...',
   })),
-  generateFriendlyIssues: vi.fn(async () => [
+  generateChecks: vi.fn(async () => [
     { title: 'Missing Information', description: 'SSN not visible', severity: 'high' },
   ]),
 }))

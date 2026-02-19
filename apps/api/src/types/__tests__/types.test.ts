@@ -4,7 +4,7 @@ import {
   ChecklistItemSchema,
   DocumentSchema,
   ReconciliationSchema,
-  FriendlyIssueSchema,
+  CheckSchema,
   type ChecklistItem,
   type Document,
   type Reconciliation,
@@ -126,7 +126,7 @@ describe('DocumentSchema', () => {
       confidence: 0.95,
       taxYear: 2025,
       issues: [],
-      issueDetails: null,
+      checks: null,
       classifiedAt: '2025-01-15T10:00:00Z',
       processingStatus: 'classified',
       processingStartedAt: null,
@@ -147,7 +147,7 @@ describe('DocumentSchema', () => {
       confidence: 0.7,
       taxYear: 2024,
       issues: ['[ERROR:wrong_year:2025:2024] Wrong year'],
-      issueDetails: [
+      checks: [
         {
           original: 'Wrong year',
           friendlyMessage: 'Document is from 2024',
@@ -171,7 +171,7 @@ describe('DocumentSchema', () => {
       confidence: 0.95,
       taxYear: 2025,
       issues: [],
-      issueDetails: null,
+      checks: null,
       classifiedAt: '2025-01-15T10:00:00Z',
       approvedAt: '2025-01-16T10:00:00Z',
       override: null,
@@ -190,7 +190,7 @@ describe('DocumentSchema', () => {
       confidence: 0.8,
       taxYear: 2025,
       issues: [],
-      issueDetails: null,
+      checks: null,
       classifiedAt: '2025-01-15T10:00:00Z',
       approvedAt: null,
       override: {
@@ -215,7 +215,7 @@ describe('DocumentSchema', () => {
         confidence: 0.5,
         taxYear: null,
         issues: [],
-        issueDetails: null,
+        checks: null,
         classifiedAt: null,
         processingStatus: status,
       }
@@ -233,7 +233,7 @@ describe('DocumentSchema', () => {
       confidence: 0.8,
       taxYear: null,
       issues: [],
-      issueDetails: null,
+      checks: null,
       classifiedAt: '2025-01-15T10:00:00Z',
     }
 
@@ -304,8 +304,8 @@ describe('ReconciliationSchema', () => {
   })
 })
 
-describe('FriendlyIssueSchema', () => {
-  it('validates valid friendly issue', () => {
+describe('CheckSchema', () => {
+  it('validates valid check', () => {
     const issue = {
       original: '[ERROR:wrong_year:2025:2024] Wrong year',
       friendlyMessage: 'This document is from 2024, but we need 2025',
@@ -313,7 +313,7 @@ describe('FriendlyIssueSchema', () => {
       severity: 'error',
     }
 
-    const result = FriendlyIssueSchema.safeParse(issue)
+    const result = CheckSchema.safeParse(issue)
     expect(result.success).toBe(true)
   })
 
@@ -325,7 +325,7 @@ describe('FriendlyIssueSchema', () => {
       severity: 'warning',
     }
 
-    const result = FriendlyIssueSchema.safeParse(issue)
+    const result = CheckSchema.safeParse(issue)
     expect(result.success).toBe(true)
   })
 
@@ -337,7 +337,7 @@ describe('FriendlyIssueSchema', () => {
       severity: 'info',
     }
 
-    const result = FriendlyIssueSchema.safeParse(issue)
+    const result = CheckSchema.safeParse(issue)
     expect(result.success).toBe(false)
   })
 })

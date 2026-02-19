@@ -226,7 +226,7 @@ interface DocumentIssueContext {
   issues: DocumentIssue[]
 }
 
-interface FriendlyIssue {
+interface Check {
   original: string
   friendlyMessage: string
   suggestedAction: string
@@ -234,17 +234,17 @@ interface FriendlyIssue {
 }
 
 /**
- * Generate human-friendly issue messages for the admin UI
+ * Generate human-friendly check messages for the admin UI
  */
-export async function generateFriendlyIssues(
+export async function generateChecks(
   fileName: string,
   documentType: string,
   taxYear: number,
   issues: Array<{ severity: string; type: string; description: string }>
-): Promise<FriendlyIssue[]> {
+): Promise<Check[]> {
   if (issues.length === 0) return []
 
-  const FriendlyIssuesSchema = z.object({
+  const ChecksSchema = z.object({
     issues: z.array(z.object({
       original: z.string(),
       friendlyMessage: z.string(),
@@ -279,7 +279,7 @@ Issues to explain:
 ${issues.map((i, idx) => `${idx + 1}. [${i.severity}:${i.type}] ${i.description}`).join('\n')}`
         }
       ],
-      response_format: zodResponseFormat(FriendlyIssuesSchema, 'friendly_issues'),
+      response_format: zodResponseFormat(ChecksSchema, 'checks'),
       temperature: 0.3
     })
 
@@ -291,7 +291,7 @@ ${issues.map((i, idx) => `${idx + 1}. [${i.severity}:${i.type}] ${i.description}
       }))
     }
   } catch (error) {
-    console.error('[FRIENDLY-ISSUES] Error generating:', error)
+    console.error('[CHECKS] Error generating:', error)
   }
 
   // Fallback to original issues

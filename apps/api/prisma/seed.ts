@@ -50,7 +50,7 @@ async function main() {
             '[ERROR:missing_field::] The employer name and EIN are missing from the W-2 for tax year 2026',
             '[ERROR:missing_field::] Employee SSN is not visible or illegible',
           ],
-          issueDetails: [
+          checks: [
             {
               original: '[ERROR:wrong_year:2026:2014] Document is from 2014, expected 2026',
               friendlyMessage: 'Incorrect Year',
@@ -87,7 +87,7 @@ async function main() {
           issues: [
             '[WARNING:low_confidence::] Classification confidence below 90%',
           ],
-          issueDetails: [
+          checks: [
             {
               original: '[WARNING:low_confidence::] Classification confidence below 90%',
               friendlyMessage: 'Needs Review',
@@ -110,7 +110,7 @@ async function main() {
           override: null,
           archived: false,
           issues: [],
-          issueDetails: null,
+          checks: null,
         },
         {
           id: 'doc-1099nec-1',
@@ -126,7 +126,7 @@ async function main() {
           override: null,
           archived: false,
           issues: [],
-          issueDetails: null,
+          checks: null,
         },
       ],
       checklist: [

@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { sendEmail } from '../lib/email.js'
 import { parseIssue, getSuggestedAction } from '../lib/issues.js'
-import { generateFollowUpEmail, generateFriendlyIssues } from '../lib/openai.js'
+import { generateFollowUpEmail, generateChecks } from '../lib/openai.js'
 import { runReconciliationAgent } from '../lib/agents/reconciliation.js'
 import { runAssessmentFast } from '../lib/agents/assessment-fast.js'
 import { DOCUMENT_TYPES } from '../types.js'
@@ -241,9 +241,9 @@ app.post(
   }
 )
 
-// GET /api/engagements/:engagementId/documents/:docId/friendly-issues
+// GET /api/engagements/:engagementId/documents/:docId/checks
 app.get(
-  '/:engagementId/documents/:docId/friendly-issues',
+  '/:engagementId/documents/:docId/checks',
   async (c) => {
     const { engagementId, docId } = c.req.param()
 
@@ -265,13 +265,13 @@ app.get(
       return c.json({ issues: [] })
     }
 
-    // Return cached issue details if available
-    const issueDetails = doc.issueDetails as Array<{ original: string; friendlyMessage: string; suggestedAction: string; severity: string }> | null
-    if (issueDetails && issueDetails.length > 0) {
-      return c.json({ issues: issueDetails })
+    // Return cached checks if available
+    const checks = doc.checks as Array<{ original: string; friendlyMessage: string; suggestedAction: string; severity: string }> | null
+    if (checks && checks.length > 0) {
+      return c.json({ issues: checks })
     }
 
-    // Fallback: Generate friendly issues on-demand for legacy documents
+    // Fallback: Generate checks on-demand for legacy documents
     const parsedIssues = doc.issues.map(issueStr => {
       const parsed = parseIssue(issueStr)
       return {
@@ -281,14 +281,14 @@ app.get(
       }
     })
 
-    const friendlyIssues = await generateFriendlyIssues(
+    const generatedChecks = await generateChecks(
       doc.fileName,
       doc.documentType,
       engagement.taxYear,
       parsedIssues
     )
 
-    return c.json({ issues: friendlyIssues })
+    return c.json({ issues: generatedChecks })
   }
 )
 
@@ -456,7 +456,7 @@ app.post(
         documentType: 'PENDING',
         confidence: 0,
         issues: [],
-        issueDetails: Prisma.JsonNull,
+        checks: Prisma.JsonNull,
         classifiedAt: null,
         retryCount: forceRetry ? 0 : doc.retryCount
       }

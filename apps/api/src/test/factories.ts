@@ -32,7 +32,7 @@ export function createMockDocument(overrides: Partial<Document> = {}): Document 
     confidence: 0.95,
     taxYear: 2025,
     issues: [],
-    issueDetails: null,
+    checks: null,
     classifiedAt: new Date().toISOString(),
     processingStatus: 'classified',
     processingStartedAt: null,

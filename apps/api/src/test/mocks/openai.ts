@@ -39,7 +39,7 @@ export const mockReconciliationResponse = {
   issues: [],
 }
 
-export const mockFriendlyIssuesResponse = {
+export const mockChecksResponse = {
   issues: [
     {
       original: 'Wrong tax year',

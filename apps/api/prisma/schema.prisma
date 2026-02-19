@@ -55,7 +55,7 @@ model Document {
   confidence          Float      @default(0)
   taxYear             Int?
   issues              String[]   @default([])
-  issueDetails        Json?      @db.JsonB
+  checks              Json?      @map("issueDetails") @db.JsonB
   override            Json?      @db.JsonB
 
   classifiedAt        DateTime?

@@ -8,7 +8,7 @@ import {
   reclassifyDocument,
   getEmailPreview,
   sendDocumentFollowUp,
-  getFriendlyIssues,
+  getChecks,
   processEngagement,
   DOCUMENT_TYPES,
 } from '../client'
@@ -248,8 +248,8 @@ describe('API Client', () => {
     })
   })
 
-  describe('getFriendlyIssues', () => {
-    it('gets friendly issues', async () => {
+  describe('getChecks', () => {
+    it('gets checks', async () => {
       const issues = [
         {
           original: 'Wrong year',
@@ -264,10 +264,10 @@ describe('API Client', () => {
         json: async () => ({ issues }),
       })
 
-      const result = await getFriendlyIssues('eng_001', 'doc_001')
+      const result = await getChecks('eng_001', 'doc_001')
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/engagements/eng_001/documents/doc_001/friendly-issues',
+        '/api/engagements/eng_001/documents/doc_001/checks',
         expect.any(Object)
       )
       expect(result.issues).toHaveLength(1)

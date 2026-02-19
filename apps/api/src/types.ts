@@ -27,8 +27,8 @@ export const ChecklistItemSchema = z.object({
   expectedDocumentType: z.enum(CLASSIFIABLE_DOCUMENT_TYPES as unknown as [string, ...string[]]).nullable(),
 })
 
-// Friendly issue format for cached LLM-generated messages
-export const FriendlyIssueSchema = z.object({
+// Check format for cached LLM-generated messages
+export const CheckSchema = z.object({
   original: z.string(),
   friendlyMessage: z.string(),
   suggestedAction: z.string(),
@@ -45,7 +45,7 @@ export const DocumentSchema = z.object({
   confidence: z.number(),
   taxYear: z.number().nullable(),
   issues: z.array(z.string()),
-  issueDetails: z.array(FriendlyIssueSchema).nullable().default(null),
+  checks: z.array(CheckSchema).nullable().default(null),
   classifiedAt: z.string().nullable(),
   processingStatus: z.enum(['pending', 'downloading', 'extracting', 'classifying', 'classified', 'error']).optional(),
   processingStartedAt: z.string().nullable().optional(),
@@ -72,5 +72,5 @@ export const ReconciliationSchema = z.object({
 
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>
 export type Document = z.infer<typeof DocumentSchema>
-export type FriendlyIssue = z.infer<typeof FriendlyIssueSchema>
+export type Check = z.infer<typeof CheckSchema>
 export type Reconciliation = z.infer<typeof ReconciliationSchema>

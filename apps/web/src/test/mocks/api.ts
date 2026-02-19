@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { Engagement, Document, ChecklistItem, Reconciliation, EmailPreview, FriendlyIssue } from '../../api/client'
+import type { Engagement, Document, ChecklistItem, Reconciliation, EmailPreview, Check } from '../../api/client'
 
 // Mock engagement data
 export const mockEngagement: Engagement = {
@@ -30,7 +30,7 @@ export const mockEngagement: Engagement = {
       confidence: 0.95,
       taxYear: 2025,
       issues: [],
-      issueDetails: null,
+      checks: null,
       classifiedAt: new Date().toISOString(),
       approved: null,
       approvedAt: null,
@@ -73,7 +73,7 @@ export const mockEmailPreview: EmailPreview = {
   uploadUrl: 'https://www.dropbox.com/sh/test123',
 }
 
-export const mockFriendlyIssues: FriendlyIssue[] = [
+export const mockChecks: Check[] = [
   {
     original: 'Wrong tax year',
     friendlyMessage: 'This document is from 2024, but we need 2025',
@@ -127,8 +127,8 @@ export const mockApi = {
     success: true,
     message: 'Email sent successfully',
   })),
-  getFriendlyIssues: vi.fn(async () => ({
-    issues: mockFriendlyIssues,
+  getChecks: vi.fn(async () => ({
+    issues: mockChecks,
   })),
 }
 

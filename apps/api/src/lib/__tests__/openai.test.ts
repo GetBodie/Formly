@@ -29,7 +29,7 @@ import {
   reconcile,
   generatePrepBrief,
   generateFollowUpEmail,
-  generateFriendlyIssues,
+  generateChecks,
 } from '../openai.js'
 
 describe('OpenAI functions', () => {
@@ -176,7 +176,7 @@ describe('OpenAI functions', () => {
           confidence: 0.95,
           taxYear: 2025,
           issues: [],
-          issueDetails: null,
+          checks: null,
           classifiedAt: new Date().toISOString(),
           approved: null,
           approvedAt: null,
@@ -296,9 +296,9 @@ describe('OpenAI functions', () => {
     })
   })
 
-  describe('generateFriendlyIssues', () => {
-    it('generates friendly issue messages', async () => {
-      const mockFriendlyIssues = {
+  describe('generateChecks', () => {
+    it('generates check messages', async () => {
+      const mockChecks = {
         issues: [
           {
             original: 'Wrong year',
@@ -310,21 +310,21 @@ describe('OpenAI functions', () => {
       }
 
       mockParse.mockResolvedValueOnce({
-        choices: [{ message: { parsed: mockFriendlyIssues } }],
+        choices: [{ message: { parsed: mockChecks } }],
       })
 
       const issues = [
         { severity: 'error', type: 'wrong_year', description: 'Wrong year' },
       ]
 
-      const result = await generateFriendlyIssues('w2.pdf', 'W-2', 2025, issues)
+      const result = await generateChecks('w2.pdf', 'W-2', 2025, issues)
 
       expect(result).toHaveLength(1)
       expect(result[0].friendlyMessage).toBe('This document is from 2024, but we need 2025')
     })
 
     it('returns empty array for no issues', async () => {
-      const result = await generateFriendlyIssues('file.pdf', 'W-2', 2025, [])
+      const result = await generateChecks('file.pdf', 'W-2', 2025, [])
       expect(result).toEqual([])
     })
 
@@ -335,7 +335,7 @@ describe('OpenAI functions', () => {
         { severity: 'warning', type: 'low_confidence', description: 'Low confidence score' },
       ]
 
-      const result = await generateFriendlyIssues('doc.pdf', 'OTHER', 2025, issues)
+      const result = await generateChecks('doc.pdf', 'OTHER', 2025, issues)
 
       expect(result).toHaveLength(1)
       expect(result[0].friendlyMessage).toBe('Low confidence score')

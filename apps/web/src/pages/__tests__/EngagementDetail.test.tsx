@@ -70,7 +70,7 @@ const mockEngagement = {
       confidence: 0.95,
       taxYear: 2025,
       issues: [],
-      issueDetails: null,
+      checks: null,
       classifiedAt: '2025-01-15T00:00:00Z',
       approvedAt: null,
       override: null,
@@ -112,8 +112,8 @@ describe('EngagementDetail', () => {
     })
 
     expect(screen.getByText('test@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Tax Year')).toBeInTheDocument()
-    expect(screen.getByText('2025')).toBeInTheDocument()
+    expect(screen.getAllByText('Tax Year').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('2025').length).toBeGreaterThanOrEqual(1)
     // #88: Status badge removed — progress % is the primary indicator
     expect(screen.getByText('50%')).toBeInTheDocument()
   })
@@ -153,23 +153,19 @@ describe('EngagementDetail', () => {
 
   describe('Document selection', () => {
     it('shows detail pane when document is selected', async () => {
-      const user = userEvent.setup()
       vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
 
       renderWithRouter('eng_001')
 
-      await waitFor(() => {
-        expect(screen.getByText('W-2')).toBeInTheDocument()
-      })
-
-      await user.click(screen.getByText('W-2'))
-
+      // #84: Auto-select means detail panel is shown immediately
       await waitFor(() => {
         expect(screen.getByText('Document Detail')).toBeInTheDocument()
       })
+
+      expect(screen.getAllByText('W-2').length).toBeGreaterThanOrEqual(1)
     })
 
-    it('shows placeholder when no document selected', async () => {
+    it('auto-selects first document on load', async () => {
       vi.mocked(getEngagement).mockResolvedValueOnce(mockEngagement as any)
 
       renderWithRouter('eng_001')
@@ -178,7 +174,8 @@ describe('EngagementDetail', () => {
         expect(screen.getByText('Test Client')).toBeInTheDocument()
       })
 
-      expect(screen.getByText('Select a document')).toBeInTheDocument()
+      // #84: First document is auto-selected, so detail panel shows immediately
+      expect(screen.getByText('Document Detail')).toBeInTheDocument()
     })
   })
 
@@ -191,7 +188,7 @@ describe('EngagementDetail', () => {
           {
             ...mockEngagement.documents[0],
             issues: ['[ERROR:wrong_year:2025:2024] Wrong year'],
-            issueDetails: [
+            checks: [
               {
                 original: 'Wrong year',
                 friendlyMessage: 'Document is from 2024',
@@ -210,18 +207,11 @@ describe('EngagementDetail', () => {
 
       renderWithRouter('eng_001')
 
-      await waitFor(() => {
-        expect(screen.getByText('W-2')).toBeInTheDocument()
-      })
-
-      // Select document
-      await user.click(screen.getByText('W-2'))
-
+      // #84: Auto-selected, detail panel shows immediately
       await waitFor(() => {
         expect(screen.getByText('Document Detail')).toBeInTheDocument()
       })
 
-      // Click approve
       await user.click(screen.getByRole('button', { name: /Approve/i }))
 
       await waitFor(() => {
@@ -237,7 +227,7 @@ describe('EngagementDetail', () => {
           {
             ...mockEngagement.documents[0],
             issues: ['[WARNING:low_confidence::] Low confidence'],
-            issueDetails: [
+            checks: [
               {
                 original: 'Low confidence',
                 friendlyMessage: 'Not sure about type',
@@ -260,18 +250,11 @@ describe('EngagementDetail', () => {
 
       renderWithRouter('eng_001')
 
-      await waitFor(() => {
-        expect(screen.getByText('W-2')).toBeInTheDocument()
-      })
-
-      // Select document
-      await user.click(screen.getByText('W-2'))
-
+      // #84: Auto-selected, combobox shows immediately
       await waitFor(() => {
         expect(screen.getByRole('combobox')).toBeInTheDocument()
       })
 
-      // Change type then click Apply
       await user.selectOptions(screen.getByRole('combobox'), '1099-NEC')
       await user.click(screen.getByRole('button', { name: /Apply/i }))
 
@@ -365,9 +348,9 @@ describe('EngagementDetail', () => {
 
       renderWithRouter('eng_001')
 
-      // PENDING documents display as "Processing..." in the table
+      // PENDING documents display as "Processing..." in the table (and detail panel)
       await waitFor(() => {
-        expect(screen.getByText('Processing...')).toBeInTheDocument()
+        expect(screen.getAllByText('Processing...').length).toBeGreaterThanOrEqual(1)
       })
     })
 
@@ -444,7 +427,7 @@ describe('EngagementDetail', () => {
           {
             ...mockEngagement.documents[0],
             issues: ['[ERROR:wrong_year:2025:2024] Document is from 2024'],
-            issueDetails: [
+            checks: [
               {
                 original: 'Wrong year',
                 friendlyMessage: 'This document is from 2024, but we need 2025',
@@ -459,14 +442,7 @@ describe('EngagementDetail', () => {
 
       renderWithRouter('eng_001')
 
-      await waitFor(() => {
-        expect(screen.getByText('W-2')).toBeInTheDocument()
-      })
-
-      // Select document
-      const user = userEvent.setup()
-      await user.click(screen.getByText('W-2'))
-
+      // #84: Auto-selected, issues show immediately
       await waitFor(() => {
         expect(screen.getByText('This document is from 2024, but we need 2025')).toBeInTheDocument()
       })

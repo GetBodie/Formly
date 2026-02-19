@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { Document, ChecklistItem, Reconciliation, FriendlyIssue } from '../api/client'
+import type { Document, ChecklistItem, Reconciliation, Check } from '../api/client'
 import { hasErrors, hasWarnings, parseIssue, getSuggestedAction } from '../utils/issues'
 
 // Unified item types
@@ -468,7 +468,7 @@ function DocumentDetail({
   const [bodyInput, setBodyInput] = useState('')
   
   const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
-  const friendlyIssues: FriendlyIssue[] = doc.issueDetails || doc.issues.map(issue => {
+  const checks: Check[] = doc.checks || doc.issues.map(issue => {
     const parsed = parseIssue(issue)
     return {
       original: issue,
@@ -578,7 +578,7 @@ function DocumentDetail({
               Issues {!hasUnresolvedIssues && <span className="text-green-600">(Resolved)</span>}
             </h3>
             <div className="space-y-2">
-              {friendlyIssues.map((issue, idx) => (
+              {checks.map((issue, idx) => (
                 <div
                   key={idx}
                   className={`p-3 rounded-lg border ${
