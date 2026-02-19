@@ -159,6 +159,7 @@ describe('sendEmail', () => {
     expect(result).toEqual({ id: 'email_123' })
     expect(mockSend).toHaveBeenCalledWith({
       from: 'noreply@test.com',
+      replyTo: 'noreply@test.com',
       to: 'test@example.com',
       subject: 'Test Subject',
       html: '<p>Test body</p>',
@@ -194,6 +195,21 @@ describe('sendEmail', () => {
 
     expect(result).toEqual({ id: 'email_456' })
     expect(mockSend).toHaveBeenCalledTimes(2)
+  })
+
+  it('uses EMAIL_REPLY_TO when set', async () => {
+    process.env.EMAIL_REPLY_TO = 'accounting@getbodie.ai'
+    mockSend.mockResolvedValueOnce({ data: { id: 'email_789' }, error: null })
+
+    await sendEmail('test@example.com', {
+      subject: 'Test',
+      html: '<p>Test</p>',
+    })
+
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ replyTo: 'accounting@getbodie.ai' })
+    )
+    delete process.env.EMAIL_REPLY_TO
   })
 
   it('throws when EMAIL_FROM is not set', async () => {
