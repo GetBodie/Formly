@@ -124,7 +124,8 @@ describe('EngagementDetail', () => {
     renderWithRouter('eng_001')
 
     await waitFor(() => {
-      expect(screen.getByText('W-2')).toBeInTheDocument()
+      // PR #128: getFriendlyDocType maps W-2 → "W-2 · Wage Statement"
+      expect(screen.getByText(/W-2/)).toBeInTheDocument()
     })
   })
 
@@ -162,7 +163,8 @@ describe('EngagementDetail', () => {
         expect(screen.getByText('Document Detail')).toBeInTheDocument()
       })
 
-      expect(screen.getAllByText('W-2').length).toBeGreaterThanOrEqual(1)
+      // PR #128: getFriendlyDocType maps W-2 → "W-2 · Wage Statement"
+      expect(screen.getAllByText(/W-2/).length).toBeGreaterThanOrEqual(1)
     })
 
     it('auto-selects first document on load', async () => {
@@ -348,9 +350,9 @@ describe('EngagementDetail', () => {
 
       renderWithRouter('eng_001')
 
-      // PENDING documents display as "Processing..." in the table (and detail panel)
+      // PENDING documents display as "Processing…" (ellipsis) via getFriendlyDocType
       await waitFor(() => {
-        expect(screen.getAllByText('Processing...').length).toBeGreaterThanOrEqual(1)
+        expect(screen.getAllByText(/Processing/).length).toBeGreaterThanOrEqual(1)
       })
     })
 
