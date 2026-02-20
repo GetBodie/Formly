@@ -212,7 +212,7 @@ export default function EngagementDetail() {
     try {
       const result = await sendDocumentFollowUp(id, docId, options)
       setError(null)
-      setToast({ message: result.message || 'Follow-up email sent successfully', type: 'success' })
+      setToast({ message: String(result.message || 'Follow-up email sent successfully'), type: 'success' })
       setTimeout(() => setToast(null), 4000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send email')
@@ -708,7 +708,8 @@ function DocumentPanel({
   const [showAllIssues, setShowAllIssues] = useState(false)
   const hasUnresolvedIssues = doc.issues.length > 0 && !doc.approvedAt
 
-  const checks: Check[] = doc.checks || doc.issues.map(issue => {
+  // Defensive: doc.checks comes from Prisma JSON column, could have unexpected shapes at runtime
+  const checks: Check[] = (doc.checks || doc.issues.map(issue => {
     const parsed = parseIssue(issue)
     return {
       original: issue,
@@ -716,7 +717,12 @@ function DocumentPanel({
       suggestedAction: getSuggestedAction(parsed),
       severity: parsed.severity,
     }
-  })
+  })).map(c => ({
+    ...c,
+    friendlyMessage: typeof c.friendlyMessage === 'string' ? c.friendlyMessage : String(c.friendlyMessage ?? ''),
+    suggestedAction: typeof c.suggestedAction === 'string' ? c.suggestedAction : String(c.suggestedAction ?? ''),
+    original: typeof c.original === 'string' ? c.original : String(c.original ?? ''),
+  }))
 
   return (
     <div className="flex flex-col h-full py-4">
@@ -816,7 +822,7 @@ function DocumentPanel({
             {doc.override && (
               <div className="flex flex-col gap-1">
                 <div className="text-sm text-gray-500">Reclassified</div>
-                <div className="text-sm text-black">from {doc.override.originalType}</div>
+                <div className="text-sm text-black">from {String(doc.override.originalType ?? '')}</div>
               </div>
             )}
           </div>

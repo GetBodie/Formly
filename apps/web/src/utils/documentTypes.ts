@@ -17,8 +17,10 @@ export const FRIENDLY_DOCUMENT_LABELS: Record<string, string> = {
 /**
  * Get a friendly label for a document type.
  * Falls back to the raw type if no mapping exists.
+ * Coerces to string defensively — Prisma JSON fields may return unexpected types at runtime.
  */
-export function getFriendlyDocType(type: string): string {
+export function getFriendlyDocType(type: string | unknown): string {
+  if (typeof type !== 'string') return String(type ?? 'Unknown')
   return FRIENDLY_DOCUMENT_LABELS[type] || type
 }
 
