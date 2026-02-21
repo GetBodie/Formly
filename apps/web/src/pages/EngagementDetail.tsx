@@ -431,8 +431,9 @@ export default function EngagementDetail() {
           </div>
 
           {/* #88: Replaced "Time Saved" with "Missing Items" — consolidates the red banner into the tile */}
-          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white h-[96px] flex flex-col justify-between items-start">
-            <div className="text-sm text-gray-500">Missing Items</div>
+          {/* #116: Expanded to list missing documents so clients know what to upload */}
+          <div className="flex-1 border border-[#e0e3e8] rounded-lg p-4 bg-white min-h-[96px] flex flex-col items-start">
+            <div className="text-sm text-gray-500 mb-2">Missing Items</div>
             <div className="flex items-center gap-2">
               <span className={`text-2xl font-semibold tracking-tight ${missingItems.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 {missingItems.length}
@@ -443,6 +444,21 @@ export default function EngagementDetail() {
                 </span>
               )}
             </div>
+            {missingItems.length > 0 && (
+              <ul className="mt-3 w-full space-y-1 text-sm border-t border-gray-100 pt-3">
+                {missingItems
+                  .sort((a, b) => (a.priority === 'high' ? -1 : 1) - (b.priority === 'high' ? -1 : 1))
+                  .map(item => (
+                    <li key={item.id} className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${item.priority === 'high' ? 'bg-red-500' : 'bg-yellow-400'}`} />
+                      <span className="text-gray-700 truncate">{item.title}</span>
+                      {item.priority === 'high' && (
+                        <span className="text-[10px] text-red-500 font-medium flex-shrink-0">REQUIRED</span>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            )}
           </div>
         </div>
 
