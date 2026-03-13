@@ -81,8 +81,42 @@ interface CreateEngagementData {
   storageFolderUrl: string
 }
 
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  { retries = 2, timeoutMs = 30_000 }: { retries?: number; timeoutMs?: number } = {}
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal })
+      clearTimeout(timer)
+      // Retry on 502/503 (Render cold-start responses)
+      if ((response.status === 502 || response.status === 503) && attempt < retries) {
+        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)))
+        continue
+      }
+      return response
+    } catch (err: unknown) {
+      clearTimeout(timer)
+      if (attempt < retries) {
+        // Wait before retrying (exponential backoff)
+        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)))
+        continue
+      }
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new Error('Request timed out — the server may be waking up. Please refresh the page.')
+      }
+      throw err
+    }
+  }
+  throw new Error('Request failed after retries')
+}
+
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetchWithRetry(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
