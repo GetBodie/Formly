@@ -14,11 +14,11 @@ interface CheckResult {
 async function checkDatabase(): Promise<CheckResult> {
   const start = performance.now()
   try {
-    const result = await prisma.$queryRaw<[{ now: Date }]>`SELECT NOW() as now`
+    await prisma.$queryRaw<[{ now: Date }]>`SELECT NOW() as now`
     const ms = Math.round(performance.now() - start)
     return { name: 'database', status: ms > 2000 ? 'degraded' : 'ok', responseMs: ms }
-  } catch (err: any) {
-    return { name: 'database', status: 'down', responseMs: Math.round(performance.now() - start), error: err.message }
+  } catch (err: unknown) {
+    return { name: 'database', status: 'down', responseMs: Math.round(performance.now() - start), error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -33,8 +33,8 @@ async function checkEngagementStats(): Promise<CheckResult> {
       responseMs: ms,
       details: { total },
     }
-  } catch (err: any) {
-    return { name: 'engagements', status: 'down', responseMs: Math.round(performance.now() - start), error: err.message }
+  } catch (err: unknown) {
+    return { name: 'engagements', status: 'down', responseMs: Math.round(performance.now() - start), error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -55,8 +55,8 @@ async function checkRecentActivity(): Promise<CheckResult> {
       responseMs: ms,
       details: { updatedLastWeek: recentlyUpdated, createdLastWeek: recentlyCreated },
     }
-  } catch (err: any) {
-    return { name: 'recent_activity', status: 'down', responseMs: Math.round(performance.now() - start), error: err.message }
+  } catch (err: unknown) {
+    return { name: 'recent_activity', status: 'down', responseMs: Math.round(performance.now() - start), error: err instanceof Error ? err.message : String(err) }
   }
 }
 
