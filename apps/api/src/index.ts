@@ -10,6 +10,7 @@ import cron from './routes/cron.js'
 import oauth from './routes/oauth.js'
 // Auth middleware available at ./middleware/auth.js
 import admin from './routes/admin.js'
+import health from './routes/health.js'
 import { initScheduler } from './scheduler.js'
 
 function ensureUrl(val: string | undefined): string | undefined {
@@ -27,8 +28,14 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
 
-// Health check (public - no auth required)
-app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' }))
+// Health check (public - no auth required, CORS open for monitoring)
+app.get('/health', (c) => {
+  c.header('Access-Control-Allow-Origin', '*')
+  return c.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' })
+})
+
+// Deep health checks
+app.route('/health', health)
 
 // Protected routes - require API authentication
 // app.use('/api/engagements/*', requireApiAuth) // Disabled for demo
