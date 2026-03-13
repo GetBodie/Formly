@@ -99,7 +99,11 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+        <div className="text-center">
+          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#042f84] border-r-transparent mb-3" />
+          <div className="text-gray-500 text-sm">Loading engagements…</div>
+          <div className="text-gray-400 text-xs mt-1">This may take a moment if the server is waking up</div>
+        </div>
       </div>
     )
   }
